@@ -2,14 +2,14 @@ use eframe::{egui, epi};
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[cfg_attr(feature = "persistence", derive(serde::Deserialize, serde::Serialize))]
-pub struct TemplateApp {
+pub struct WarbossWaaghitApp {
     // Example stuff:
     label: String,
     value: f32,
     painting: Painting,
 }
 
-impl Default for TemplateApp {
+impl Default for WarbossWaaghitApp {
     fn default() -> Self {
         Self {
             // Example stuff:
@@ -20,7 +20,7 @@ impl Default for TemplateApp {
     }
 }
 
-impl epi::App for TemplateApp {
+impl epi::App for WarbossWaaghitApp {
     fn name(&self) -> &str {
         "egui template"
     }
@@ -40,7 +40,7 @@ impl epi::App for TemplateApp {
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::CtxRef, frame: &mut epi::Frame<'_>) {
-        let TemplateApp {
+        let WarbossWaaghitApp {
             label,
             value,
             painting,

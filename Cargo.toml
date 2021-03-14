@@ -1,13 +1,19 @@
 [package]
-name = "egui_template"
+name = "warboss_waaghit_package"
 version = "0.1.0"
-authors = ["Emil Ernerfeldt <emilernerfeldt@gmail.com>"]
+authors = ["Jacob Williams <bayswaterpc@gmail.com>"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
 crate-type = ["cdylib", "rlib"]
+name = "warboss_waaghit_lib"
+path = "src/lib.rs"
+
+[[bin]]
+name = "warboss_waaghit"
+path = "src/main.rs"
 
 [dependencies]
 eframe = "0.10.0" # Gives us egui, epi and web+native backends
@@ -15,7 +21,7 @@ eframe = "0.10.0" # Gives us egui, epi and web+native backends
 serde = { version = "1", features = ["derive"], optional = true }
 
 [features]
-default = []
+default = ["persistence"]
 http = ["eframe/http"] # Enable if you want to do http requests
 persistence = ["eframe/persistence", "serde"] # Enable if you want to persist app state on shutdown
 
