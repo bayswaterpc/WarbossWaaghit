@@ -22,7 +22,7 @@ impl Default for WarbossWaaghitApp {
 
 impl epi::App for WarbossWaaghitApp {
     fn name(&self) -> &str {
-        "egui template"
+        "Generals Chest"
     }
 
     /// Called by the framework to load old app state (if any).
@@ -51,7 +51,13 @@ impl epi::App for WarbossWaaghitApp {
         // For inspiration and more examples, go to https://emilk.github.io/egui
 
         egui::SidePanel::left("side_panel", 200.0).show(ctx, |ui| {
-            ui.heading("Side Panel");
+            ui.heading("Warboss Waaghit");
+
+            ui.add(egui::Button::new("Army Picker"));
+            // ui.add(egui::Button::new("Tier Lists"));
+            // ui.add(egui::Button::new("Personal Stats"));
+            // ui.add(egui::Button::new("Resources"));
+
 
 
             ui.with_layout(egui::Layout::bottom_up(egui::Align::Center), |ui| {
@@ -89,6 +95,7 @@ impl epi::App for WarbossWaaghitApp {
                             Some(is_army_setups_folder) => {
                                 if is_army_setups_folder {
                                     //load_army_builds(army_setups_folder.army_setups_folder.as_str());
+                                    println!("you found the correct folder!!!!");
                                 }
                             }
                             None => {
