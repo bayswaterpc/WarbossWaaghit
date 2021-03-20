@@ -1,9 +1,12 @@
 use eframe::{egui, epi};
 use std::io;
 use std::fs::{self, DirEntry};
-use std::path::Path;
-use std::ffi::OsStr;
+use std::path::{Path, PathBuf};
+use std::ffi::{OsStr, OsString};
 use eframe::egui::{Align, Slider, DragValue, Ui, Widget, Color32, ScrollArea};
+use std::io::Error;
+use rand::Rng;
+
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[cfg_attr(feature = "persistence", derive(serde::Deserialize, serde::Serialize))]
@@ -95,15 +98,24 @@ impl epi::App for WarbossWaaghitApp {
                         match validate_folder(& army_setups_folder.army_setups_folder){
                             Some(is_army_setups_folder) => {
                                 if is_army_setups_folder {
-                                    //load_army_builds(army_setups_folder.army_setups_folder.as_str());
-                                    println!("you found the correct folder!!!!");
+                                    println!("Loading {}", army_setups_folder.army_setups_folder.as_str());
+                                    let armies =  load_army_builds(army_setups_folder.army_setups_folder.as_str());
+                                    if armies.is_empty() {
+                                        army_setups_folder.valid_folder = false;
+                                        println!("Didn't find no armies");
+                                    }else {
+                                        army_setups_folder.valid_folder = true;
+                                        army_picker.army_builds = armies;
+                                        println!("have {} armies", army_picker.army_builds.len());
+                                    }
                                 }
                             }
                             None => {
+                                army_setups_folder.valid_folder = false;
                                 println!("error opening file");
                             }
                         }
-                        println!("todo folder reader function");
+
                     }
 
 
@@ -118,12 +130,19 @@ impl epi::App for WarbossWaaghitApp {
             ui.heading("Army Picker");
             ui.horizontal(|ui| {
                 ui.label("Selected ");
-                ui.label(army_picker.selected_army_build.file_name.as_str());
+                ui.label(army_picker.selected_army_build.file_name.to_str().unwrap());
             });
 
             ui.horizontal(|ui| {
                 if ui.button("Insert Build as ").clicked() {
-                    println!("todo make insert function")
+                    let mut rng = rand::thread_rng();
+                    let indx : usize = rng.gen_range(0..army_picker.army_builds.len());
+                    println!("inserting {}", army_picker.army_builds[indx].file_name.to_str().unwrap());
+                    army_picker.selected_army_build = army_picker.army_builds[indx].clone();
+                    match insert_army(&army_picker, &army_setups_folder){
+                        Ok(()) => {println!("inserted")},
+                        Err(e) => {println!("err {}", e)}
+                    }
                 }
                 ui.text_edit_singleline(&mut army_picker.insert_name);
             });
@@ -153,8 +172,8 @@ impl epi::App for WarbossWaaghitApp {
 
 // ----------------------------------------------------------------------------
 
-#[cfg_attr(feature = "persistence", derive(serde::Deserialize, serde::Serialize))]
-struct ArmySetupsFolder {
+#[cfg_attr(feature = "persistence", derive(serde::Deserialize, serde::Serialize, Clone))]
+pub struct ArmySetupsFolder {
     army_setups_folder: String,
     valid_folder: bool,
     show: bool
@@ -170,7 +189,7 @@ impl Default for ArmySetupsFolder {
     }
 }
 
-#[cfg_attr(feature = "persistence", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "persistence", derive(serde::Deserialize, serde::Serialize, Debug, Clone))]
 pub enum Faction {
     BM,
     BRT,
@@ -191,9 +210,88 @@ pub enum Faction {
     ALL
 }
 
-#[cfg_attr(feature = "persistence", derive(serde::Deserialize, serde::Serialize))]
+pub fn get_army_faction(file_name: &OsString) -> Faction{
+    let lower_file = file_name.to_str().unwrap().to_ascii_lowercase();
+    if lower_file.contains("bm vs") {
+        return Faction::BM;
+    } else if lower_file.contains("brt vs") {
+        return Faction::BRT;
+    } else if lower_file.contains("ch vs") {
+        return Faction::CH;
+    } else if lower_file.contains("dw vs") {
+        return Faction::DW;
+    } else if lower_file.contains("emp vs") {
+        return Faction::EMP;
+    } else if lower_file.contains("ew vs") {
+        return Faction::DW;
+    } else if lower_file.contains("de vs") {
+        return Faction::DE;
+    }
+    else if lower_file.contains("gs vs") {
+        return Faction::GS;
+    } else if lower_file.contains("he vs") {
+        return Faction::HE;
+    }else if lower_file.contains("lm vs") {
+        return Faction::LM;
+    }else if lower_file.contains("nrs vs") {
+        return Faction::NRS;
+    }else if lower_file.contains("skv vs") {
+        return Faction::SKV;
+    }else if lower_file.contains("tk vs") {
+        return Faction::TK;
+    }else if lower_file.contains("vc vs") {
+        return Faction::VC;
+    }else if lower_file.contains("vp vs") {
+        return Faction::VP;
+    }else if lower_file.contains("we vs") {
+        return Faction::WE;
+    }
+    Faction::UNKNOWN
+}
+
+pub fn get_vs_faction(file_name: &OsString) -> Faction{
+    let lower_file = file_name.to_str().unwrap().to_ascii_lowercase();
+    if lower_file.contains("vs bm") {
+        return Faction::BM;
+    } else if lower_file.contains("vs brt") {
+        return Faction::BRT;
+    } else if lower_file.contains("vs ch") {
+        return Faction::CH;
+    } else if lower_file.contains("vs de") {
+        return Faction::DE;
+    } else if lower_file.contains("vs dw") {
+        return Faction::DW;
+    } else if lower_file.contains("vs emp") {
+        return Faction::EMP;
+    } else if lower_file.contains("vs gs") {
+        return Faction::GS;
+    } else if lower_file.contains("vs he") {
+        return Faction::HE;
+    }else if lower_file.contains("vs lm") {
+        return Faction::LM;
+    }else if lower_file.contains("vs nrs") {
+        return Faction::NRS;
+    }else if lower_file.contains("vs skv") {
+        return Faction::SKV;
+    }else if lower_file.contains("vs tk") {
+        return Faction::TK;
+    }else if lower_file.contains("vs vc") {
+        return Faction::VC;
+    }else if lower_file.contains("vs vp") {
+        return Faction::VP;
+    }else if lower_file.contains("vs we") {
+        return Faction::WE;
+    }else if lower_file.contains("vs aa") {
+        return Faction::ALL;
+    }
+    Faction::UNKNOWN
+}
+
+
+#[cfg_attr(feature = "persistence", derive(serde::Deserialize, serde::Serialize, Clone))]
 pub struct ArmyBuild {
-    file_name: String,
+    file: PathBuf,
+    file_name: OsString,
     faction: Faction,
     vs_faction: Faction
 }
@@ -201,7 +299,8 @@ pub struct ArmyBuild {
 impl Default for ArmyBuild {
     fn default() -> Self {
         Self {
-            file_name: "".to_owned(),
+            file: PathBuf::new(),
+            file_name: OsString::new(),
             faction: Faction::UNKNOWN,
             vs_faction: Faction::UNKNOWN
         }
@@ -209,8 +308,8 @@ impl Default for ArmyBuild {
 }
 
 
-#[cfg_attr(feature = "persistence", derive(serde::Deserialize, serde::Serialize))]
-struct ArmyPicker {
+#[cfg_attr(feature = "persistence", derive(serde::Deserialize, serde::Serialize, Clone))]
+pub struct ArmyPicker {
     selected_army_build: ArmyBuild,
     insert_name: String,
     search_string: String,
@@ -230,9 +329,52 @@ impl Default for ArmyPicker {
     }
 }
 
+impl ArmyPicker {
+    pub fn valid_insert_name(&self) -> Result<String, String> {
+        match self.insert_name.clone().chars().nth(0) {
+            Some( c ) => {
+                if c == '.' {
+                    return Err("Can't start a name with special characters".to_string())
+                }
+            },
+            None => { return Err("Oy ya got to write something here".to_string()); }
+        }
+
+        match OsString::from( self.insert_name.as_str()).to_str() {
+            Some(str) => Ok((str.to_string())),
+            None => Err("Can't have no funny characters".to_string())
+        }
+    }
+}
+
+pub fn insert_army(picker: &ArmyPicker, folder: &ArmySetupsFolder) -> Result<(), String> {
+    //Check If Inputs Valid
+    if !folder.valid_folder{return Err("You're folder's no good".to_string())}
+    let insert_name = match picker.valid_insert_name() {
+        Ok(valid_name) => valid_name,
+        Err(e) => {return Err(e);}
+    };
+
+    let selected_file = picker.selected_army_build.file.to_str().unwrap();//osstring prevalidated so none option should be fine
+    if !picker.selected_army_build.file.is_file(){
+        println!("{}", selected_file);
+        return Err("Da army file went missing!!!!".to_string());
+    }
+
+    //Do Copy
+    let combined = folder.army_setups_folder.clone() + "/" + insert_name.as_str() + ".army_setup";
+    println!("combined {}", combined);
+    match std::fs::copy(selected_file, combined.as_str()){
+        Ok(_) => {Ok(())}
+        Err(e) => {
+            println!("{}", e);
+            Err("Couldn't copy".to_string())
+        }
+    }
+}
 
 
-pub fn validate_folder(folder_path: &str) -> Option<bool>{
+pub fn validate_folder(folder_path: &str) -> Option<bool> {
     println!("into validate folder");
     let path = std::path::Path::new(folder_path);
     if ! path.exists() {
@@ -256,7 +398,7 @@ pub fn validate_folder(folder_path: &str) -> Option<bool>{
             println!("skip sub folder");
             continue
         } else {
-            if is_army_setup_bool(&entry){
+            if is_army_setup_file(&entry){
                 return Some(true);
             }
         }
@@ -266,14 +408,51 @@ pub fn validate_folder(folder_path: &str) -> Option<bool>{
 }
 
 
-pub fn load_army_builds(_folder_path: &str) -> Vec<ArmyBuild>{
-    vec![]
+pub fn load_army_builds(folder_path: &str) -> Vec<ArmyBuild>{
+    let mut builds = vec![];
+    match validate_folder(folder_path) {
+        Some(b) => {if !b {return vec![]; }},
+        None => {return builds}
+    }
+
+    println!("into validate folder");
+    let path = std::path::Path::new(folder_path);
+
+    //make sure there are .army_setup files in the directory
+    for entry in fs::read_dir(path).unwrap() {
+        let entry = entry.unwrap();
+        if entry.path().is_dir() { //skip subfolder
+            continue
+        } else {
+            if is_army_setup_file(&entry) {
+                let file_stem = entry.path().file_stem().unwrap().to_os_string();
+                builds.push(
+                    ArmyBuild {
+                        file: entry.path(),
+                        file_name: file_stem.clone(),
+                        faction: get_army_faction(&file_stem),
+                        vs_faction: get_vs_faction(&file_stem)
+                    }
+                );
+                //println!("{:?} {:?} {:?}", builds.last().unwrap().file_name, builds.last().unwrap().faction, builds.last().unwrap().vs_faction);
+            }
+        }
+    }
+    builds
 }
 
-fn is_army_setup_bool(file: &DirEntry) -> bool {
+fn is_army_setup_file(file: &DirEntry) -> bool {
     match file.file_type(){
         Ok(ft) => {if  ft.is_file(){
-            match  file.path().extension().and_then(OsStr::to_str){
+
+
+            let path = file.path();
+            let file_stem = path.file_stem().unwrap().to_str().unwrap();
+            if file_stem.len() ==0 {return false};
+            if file_stem.chars().next().unwrap() == '.' {return false}
+            //if file_stem[0] == '.' {return false}
+
+            match  path.extension().and_then(OsStr::to_str){
                 None => { return false;}
                 Some(ext) => {
                     if ext == "army_setup" {
