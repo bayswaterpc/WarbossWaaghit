@@ -12,14 +12,14 @@ use rand::Rng;
 #[cfg_attr(feature = "persistence", derive(serde::Deserialize, serde::Serialize))]
 pub struct WarbossWaaghitApp {
     army_setups_folder: ArmySetupsFolder,
-    army_picker: ArmyPicker
+    army_setups_manager: ArmySetupsManager
 }
 
 impl Default for WarbossWaaghitApp {
     fn default() -> Self {
         Self {
             army_setups_folder: Default::default(),
-            army_picker: Default::default()
+            army_setups_manager: Default::default()
         }
     }
 }
@@ -46,7 +46,7 @@ impl epi::App for WarbossWaaghitApp {
     fn update(&mut self, ctx: &egui::CtxRef, frame: &mut epi::Frame<'_>) {
         let WarbossWaaghitApp {
             army_setups_folder,
-            army_picker
+            army_setups_manager
         } = self;
 
         // Examples of how to create different panels and windows.
@@ -57,7 +57,7 @@ impl epi::App for WarbossWaaghitApp {
         egui::SidePanel::left("side_panel", 200.0).show(ctx, |ui| {
             ui.heading("Warboss Waaghit");
 
-            ui.add(egui::Button::new("Army Picker"));
+            ui.add(egui::Button::new("Army Setups"));
             // ui.add(egui::Button::new("Tier Lists"));
             // ui.add(egui::Button::new("Personal Stats"));
             // ui.add(egui::Button::new("Resources"));
@@ -85,77 +85,96 @@ impl epi::App for WarbossWaaghitApp {
         egui::CentralPanel::default().show(ctx, |ui| {
 
 
-            egui::CollapsingHeader::new("Army Setup Path")
-                .default_open(army_setups_folder.show)
+            egui::CollapsingHeader::new("Load Army Setups")
+                .default_open(army_setups_manager.insert_folder.show)
                 .show(ui, |ui| {
                     ui.horizontal(|ui| {
-                        ui.label("File Path: ");
-                        ui.text_edit_singleline(&mut army_setups_folder.army_setups_folder);
-                    });
-
-
-                    if ui.button("Load Builds From Folder").clicked() {
-                        match validate_folder(& army_setups_folder.army_setups_folder){
-                            Some(is_army_setups_folder) => {
-                                if is_army_setups_folder {
-                                    println!("Loading {}", army_setups_folder.army_setups_folder.as_str());
-                                    let armies =  load_army_builds(army_setups_folder.army_setups_folder.as_str());
-                                    if armies.is_empty() {
-                                        army_setups_folder.valid_folder = false;
-                                        println!("Didn't find no armies");
-                                    }else {
-                                        army_setups_folder.valid_folder = true;
-                                        army_picker.army_builds = armies;
-                                        println!("have {} armies", army_picker.army_builds.len());
-                                    }
-                                }
-                            }
-                            None => {
-                                army_setups_folder.valid_folder = false;
-                                println!("error opening file");
+                        if ui.button("Load Folder").clicked() {
+                            match army_setups_manager.load_folder(){
+                                Ok(_) => {}
+                                Err(e) => {println!("{}", e)}
                             }
                         }
-
+                        if ui.text_edit_singleline(&mut army_setups_manager.insert_folder.folder_str).lost_kb_focus() && ctx.input().key_pressed(egui::Key::Enter) {
+                            match army_setups_manager.load_folder(){
+                                Ok(_) => {}
+                                Err(e) => {println!("{}", e)}
+                            }
+                        }
                     }
+
+                    );
+
+
 
 
                     egui::CollapsingHeader::new("Hint")
                         .default_open(false)
                         .show(ui, |ui| {
-                            ui.label("This folder can be found in your TWW2 Roaming App Data folder ex:");
+                            ui.label("This can be any folder with a \'.army_setup\' file");
+                            ui.label("The default army setup save folder can be found in your TWW2 Roaming AppData folder ex:");
                             ui.label("C:\\Users\\DaBiggestBoss\\AppData\\Roaming\\The Creative Assembly\\Warhammer2\\army_setups");
                         });
                 });
 
-            ui.heading("Army Picker");
-            ui.horizontal(|ui| {
-                ui.label("Selected ");
-                ui.label(army_picker.selected_army_build.file_name.to_str().unwrap());
-            });
 
-            ui.horizontal(|ui| {
-                if ui.button("Insert Build as ").clicked() {
-                    let mut rng = rand::thread_rng();
-                    let indx : usize = rng.gen_range(0..army_picker.army_builds.len());
-                    println!("inserting {}", army_picker.army_builds[indx].file_name.to_str().unwrap());
-                    army_picker.selected_army_build = army_picker.army_builds[indx].clone();
-                    match insert_army(&army_picker, &army_setups_folder){
-                        Ok(()) => {println!("inserted")},
-                        Err(e) => {println!("err {}", e)}
-                    }
-                }
-                ui.text_edit_singleline(&mut army_picker.insert_name);
-            });
 
 
             //ARMIES Section
-            ui.heading("Armies");
-            ui.label("This shows how you can scroll to a specific item or pixel offset");
+            // ui.heading("Armies");
+            // ui.label("This shows how you can scroll to a specific item or pixel offset");
 
+            egui::CollapsingHeader::new("Select Army Setup").default_open(false).show(ui, |ui| {
+                if army_setups_manager.army_builds.is_empty() {
+                    ui.label("You got to load some armies first");
+                }else {
+                    if ui.button("Search").clicked() {
+                        println!("search {} todo search & update display function", army_setups_manager.search_string);
+                    }
+                    if ui.text_edit_singleline(&mut army_setups_manager.search_string).lost_kb_focus() && ctx.input().key_pressed(egui::Key::Enter){
+                        println!("enter search :) {} todo search & update display function", army_setups_manager.search_string);
+                    }
+
+                    let mut open = true;
+                    let mut scroll_widget = Scrolling::default();
+                    scroll_widget.show(ctx, &mut open);
+                }
+                });
+
+
+            egui::CollapsingHeader::new("Insert Army Setup").default_open(false).show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label("Selected ");
+                    ui.label(army_setups_manager.selected_army_build.file_name.to_str().unwrap());
+                });
+
+                ui.horizontal(|ui| {
+                    if ui.button("Insert Build as ").clicked() {
+                        let mut rng = rand::thread_rng();
+                        let indx : usize = rng.gen_range(0..army_setups_manager.army_builds.len());
+                        println!("inserting {}", army_setups_manager.army_builds[indx].file_name.to_str().unwrap());
+                        army_setups_manager.selected_army_build = army_setups_manager.army_builds[indx].clone();
+                        match insert_army(&army_setups_manager, &army_setups_manager.insert_folder){
+                            Ok(()) => {println!("inserted")},
+                            Err(e) => {println!("err {}", e)}
+                        }
+                    }
+                    if ui.text_edit_singleline(&mut army_setups_manager.insert_name).lost_kb_focus() && ctx.input().key_pressed(egui::Key::Enter){
+                        let mut rng = rand::thread_rng();
+                        let indx : usize = rng.gen_range(0..army_setups_manager.army_builds.len());
+                        println!("inserting {}", army_setups_manager.army_builds[indx].file_name.to_str().unwrap());
+                        army_setups_manager.selected_army_build = army_setups_manager.army_builds[indx].clone();
+                        match insert_army(&army_setups_manager, &army_setups_manager.insert_folder){
+                            Ok(()) => {println!("inserted")},
+                            Err(e) => {println!("err {}", e)}
+                        }
+                    }
+                });
+            });
         });
-        let mut open = true;
-        let mut scroll_widget = Scrolling::default();
-        scroll_widget.show(ctx, &mut open);
+
+
+
 
 
         if false {
@@ -174,7 +193,7 @@ impl epi::App for WarbossWaaghitApp {
 
 #[cfg_attr(feature = "persistence", derive(serde::Deserialize, serde::Serialize, Clone))]
 pub struct ArmySetupsFolder {
-    army_setups_folder: String,
+    folder_str: String,
     valid_folder: bool,
     show: bool
 }
@@ -182,7 +201,7 @@ pub struct ArmySetupsFolder {
 impl Default for ArmySetupsFolder {
     fn default() -> Self {
         Self {
-            army_setups_folder: "C:\\Users\\DaBiggestBoss\\AppData\\Roaming\\The Creative Assembly\\Warhammer2\\army_setups".to_string(),
+            folder_str: "C:\\Users\\DaBiggestBoss\\AppData\\Roaming\\The Creative Assembly\\Warhammer2\\army_setups".to_string(),
             valid_folder: false,
             show: true
         }
@@ -309,27 +328,35 @@ impl Default for ArmyBuild {
 
 
 #[cfg_attr(feature = "persistence", derive(serde::Deserialize, serde::Serialize, Clone))]
-pub struct ArmyPicker {
+pub struct ArmySetupsManager {
+    load_folder: ArmySetupsFolder,
+    army_builds: Vec<ArmyBuild>,
+    displayed_builds: Vec<ArmyBuild>,
+    search_string: String,
+    search_faction: Faction,
+    search_vs_faction: Faction,
     selected_army_build: ArmyBuild,
     insert_name: String,
-    search_string: String,
-    army_builds: Vec<ArmyBuild>,
-    displayed_builds: Vec<ArmyBuild>
+    insert_folder: ArmySetupsFolder,
 }
 
-impl Default for ArmyPicker {
+impl Default for ArmySetupsManager {
     fn default() -> Self {
         Self {
+            load_folder: ArmySetupsFolder::default(),
+            army_builds: vec![],
+            displayed_builds: vec![],
+            search_string: "".to_owned(),
+            search_faction: Faction::ALL,
+            search_vs_faction: Faction::ALL,
             selected_army_build: ArmyBuild::default(),
             insert_name: "AAAAAGGGHHWWWAAAAAAA".to_owned(),
-            search_string: "".to_owned(),
-            army_builds: vec![],
-            displayed_builds: vec![]
+            insert_folder: ArmySetupsFolder::default(),
         }
     }
 }
 
-impl ArmyPicker {
+impl ArmySetupsManager {
     pub fn valid_insert_name(&self) -> Result<String, String> {
         match self.insert_name.clone().chars().nth(0) {
             Some( c ) => {
@@ -345,9 +372,21 @@ impl ArmyPicker {
             None => Err("Can't have no funny characters".to_string())
         }
     }
+
+    pub fn load_folder(&mut self) -> Result<(), String>{
+        match valid_load_folder(& self.insert_folder.folder_str){
+            Ok(()) => {
+                let armies =  load_army_builds(self.insert_folder.folder_str.as_str());
+                self.insert_folder.valid_folder = true;
+                self.army_builds = armies;
+            },
+            Err(e) => return Err(e),
+        }
+        Ok(())
+    }
 }
 
-pub fn insert_army(picker: &ArmyPicker, folder: &ArmySetupsFolder) -> Result<(), String> {
+pub fn insert_army(picker: &ArmySetupsManager, folder: &ArmySetupsFolder) -> Result<(), String> {
     //Check If Inputs Valid
     if !folder.valid_folder{return Err("You're folder's no good".to_string())}
     let insert_name = match picker.valid_insert_name() {
@@ -362,9 +401,8 @@ pub fn insert_army(picker: &ArmyPicker, folder: &ArmySetupsFolder) -> Result<(),
     }
 
     //Do Copy
-    let combined = folder.army_setups_folder.clone() + "/" + insert_name.as_str() + ".army_setup";
-    println!("combined {}", combined);
-    match std::fs::copy(selected_file, combined.as_str()){
+    let insert_file = folder.folder_str.clone() + "/" + insert_name.as_str() + ".army_setup";
+    match std::fs::copy(selected_file, insert_file.as_str()){
         Ok(_) => {Ok(())}
         Err(e) => {
             println!("{}", e);
@@ -374,21 +412,15 @@ pub fn insert_army(picker: &ArmyPicker, folder: &ArmySetupsFolder) -> Result<(),
 }
 
 
-pub fn validate_folder(folder_path: &str) -> Option<bool> {
+pub fn valid_load_folder(folder_path: &str) -> Result<(), String> {
     println!("into validate folder");
     let path = std::path::Path::new(folder_path);
     if ! path.exists() {
-        return Some(false);
+        return Err("Dat path dont even exist!!".to_string());
 
     }
     if ! path.is_dir() {
-        return Some(false);
-    }
-
-    if !folder_path.contains("The Creative Assembly") ||
-        !folder_path.contains("army_setups"){
-        println!("Wrong Folder");
-        return Some(false);
+        return Err("Dat path dont even exist!!".to_string());
     }
 
     //make sure there are .army_setup files in the directory
@@ -399,23 +431,45 @@ pub fn validate_folder(folder_path: &str) -> Option<bool> {
             continue
         } else {
             if is_army_setup_file(&entry){
-                return Some(true);
+                return Ok(());
             }
         }
     }
 
-    Some(false)
+    Err("The folder got no \'.army_setup\' files".to_string())
+}
+
+pub fn valid_insert_folder(folder_path: &str) -> Result<(), String> {
+    println!("into validate folder");
+    let path = std::path::Path::new(folder_path);
+    if ! path.exists() {
+        return Err("Dat path dont even exist!!".to_string());
+
+    }
+    if ! path.is_dir() {
+        return Err("Dat path dont even exist!!".to_string());
+    }
+
+    let setup_root = "AppData/Roaming/The Creative Assembly/Warhammer2/";
+    if !folder_path.contains(setup_root) ||
+        !folder_path.contains("army_setups"){
+        let s = format!("Da path needs dis \'{}\'", setup_root);
+        return Err(s);
+    }
+
+
+    Ok(())
 }
 
 
 pub fn load_army_builds(folder_path: &str) -> Vec<ArmyBuild>{
     let mut builds = vec![];
-    match validate_folder(folder_path) {
-        Some(b) => {if !b {return vec![]; }},
-        None => {return builds}
+    match valid_load_folder(folder_path) {
+        Ok(_) => {},
+        Err(_) => {return builds}
     }
 
-    println!("into validate folder");
+
     let path = std::path::Path::new(folder_path);
 
     //make sure there are .army_setup files in the directory
@@ -605,3 +659,122 @@ impl Scrolling {
 }
 
 
+#[cfg_attr(feature = "persistence", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "persistence", serde(default))]
+#[derive(PartialEq)]
+pub struct ArmyDisplayScroll {
+    track_item: usize,
+    tack_item_align: Align,
+    offset: f32,
+}
+
+impl Default for ArmyDisplayScroll {
+    fn default() -> Self {
+        Self {
+            track_item: 25,
+            tack_item_align: Align::Center,
+            offset: 0.0,
+        }
+    }
+}
+
+impl ArmyDisplayScroll {
+    fn name(&self) -> &'static str {
+        "↕ Scrolling"
+    }
+
+    fn show(&mut self, ctx: &egui::CtxRef, open: &mut bool) {
+        egui::Window::new(self.name())
+            .open(open)
+            .resizable(false)
+            .show(ctx, |ui| {
+                self.ui(ui);
+            });
+    }
+
+    fn ui(&mut self, ui: &mut Ui) {
+        ui.label("This shows how you can scroll to a specific item or pixel offset");
+
+        let mut track_item = false;
+        let mut go_to_scroll_offset = false;
+        let mut scroll_top = false;
+        let mut scroll_bottom = false;
+
+        ui.horizontal(|ui| {
+            ui.label("Scroll to a specific item index:");
+            track_item |= ui
+                .add(Slider::usize(&mut self.track_item, 1..=50).text("Track Item"))
+                .dragged();
+        });
+
+        ui.horizontal(|ui| {
+            ui.label("Item align:");
+            track_item |= ui
+                .radio_value(&mut self.tack_item_align, Align::Min, "Top")
+                .clicked();
+            track_item |= ui
+                .radio_value(&mut self.tack_item_align, Align::Center, "Center")
+                .clicked();
+            track_item |= ui
+                .radio_value(&mut self.tack_item_align, Align::Max, "Bottom")
+                .clicked();
+        });
+
+        ui.horizontal(|ui| {
+            ui.label("Scroll to a specific offset:");
+            go_to_scroll_offset |= ui
+                .add(DragValue::f32(&mut self.offset).speed(1.0).suffix("px"))
+                .dragged();
+        });
+
+        ui.horizontal(|ui| {
+            scroll_top |= ui.button("Scroll to top").clicked();
+            scroll_bottom |= ui.button("Scroll to bottom").clicked();
+        });
+
+        let mut scroll_area = ScrollArea::from_max_height(200.0);
+        if go_to_scroll_offset {
+            scroll_area = scroll_area.scroll_offset(self.offset);
+        }
+
+        ui.separator();
+        let (current_scroll, max_scroll) = scroll_area.show(ui, |ui| {
+            if scroll_top {
+                ui.scroll_to_cursor(Align::TOP);
+            }
+            ui.vertical(|ui| {
+                for item in 1..=50 {
+                    if track_item && item == self.track_item {
+                        let response =
+                            ui.colored_label(Color32::YELLOW, format!("This is item {}", item));
+                        response.scroll_to_me(self.tack_item_align);
+                    } else {
+                        ui.label(format!("This is item {}", item));
+                    }
+                }
+            });
+
+            if scroll_bottom {
+                ui.scroll_to_cursor(Align::BOTTOM);
+            }
+
+            let margin = ui.visuals().clip_rect_margin;
+
+            let current_scroll = ui.clip_rect().top() - ui.min_rect().top() + margin;
+            let max_scroll = ui.min_rect().height() - ui.clip_rect().height() + 2.0 * margin;
+            (current_scroll, max_scroll)
+        });
+        ui.separator();
+
+        ui.label(format!(
+            "Scroll offset: {:.0}/{:.0} px",
+            current_scroll, max_scroll
+        ));
+
+        ui.separator();
+        ui.vertical_centered(|ui| {
+            egui::reset_button(ui, self);
+            //ui.add(crate::__egui_github_link_file!());
+        });
+    }
+}
