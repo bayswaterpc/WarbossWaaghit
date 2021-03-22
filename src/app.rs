@@ -7,18 +7,17 @@ use eframe::egui::{Align, Slider, DragValue, Ui, Widget, Color32, ScrollArea};
 use std::io::Error;
 use rand::Rng;
 
+use crate::factions::{Faction, get_faction_abbreviations, parse_faction, parse_vs_faction};
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[cfg_attr(feature = "persistence", derive(serde::Deserialize, serde::Serialize))]
 pub struct WarbossWaaghitApp {
-    army_setups_folder: ArmySetupsFolder,
     army_setups_manager: ArmySetupsManager
 }
 
 impl Default for WarbossWaaghitApp {
     fn default() -> Self {
         Self {
-            army_setups_folder: Default::default(),
             army_setups_manager: Default::default()
         }
     }
@@ -45,7 +44,6 @@ impl epi::App for WarbossWaaghitApp {
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::CtxRef, frame: &mut epi::Frame<'_>) {
         let WarbossWaaghitApp {
-            army_setups_folder,
             army_setups_manager
         } = self;
 
@@ -101,12 +99,7 @@ impl epi::App for WarbossWaaghitApp {
                                 Err(e) => {println!("{}", e)}
                             }
                         }
-                    }
-
-                    );
-
-
-
+                    });
 
                     egui::CollapsingHeader::new("Hint")
                         .default_open(false)
@@ -120,34 +113,16 @@ impl epi::App for WarbossWaaghitApp {
 
 
 
-            //ARMIES Section
-            // ui.heading("Armies");
-            // ui.label("This shows how you can scroll to a specific item or pixel offset");
-
             egui::CollapsingHeader::new("Select Army Setup").default_open(false).show(ui, |ui| {
                 if army_setups_manager.army_builds.is_empty() {
                     ui.label("You got to load some armies first");
                 }else {
-                    if ui.button("Search").clicked() {
-                        println!("search {} todo search & update display function", army_setups_manager.search_string);
-                    }
-                    if ui.text_edit_singleline(&mut army_setups_manager.search_string).lost_kb_focus() && ctx.input().key_pressed(egui::Key::Enter){
-                        println!("enter search :) {} todo search & update display function", army_setups_manager.search_string);
-                    }
-
-                    let mut open = true;
-                    let mut scroll_widget = Scrolling::default();
-                    scroll_widget.show(ctx, &mut open);
+                    army_setups_manager.army_selector_scrolling_ui(ui, ctx);
                 }
-                });
+            });
 
 
             egui::CollapsingHeader::new("Insert Army Setup").default_open(false).show(ui, |ui| {
-                ui.horizontal(|ui| {
-                    ui.label("Selected ");
-                    ui.label(army_setups_manager.selected_army_build.file_name.to_str().unwrap());
-                });
-
                 ui.horizontal(|ui| {
                     if ui.button("Insert Build as ").clicked() {
                         let mut rng = rand::thread_rng();
@@ -172,19 +147,6 @@ impl epi::App for WarbossWaaghitApp {
                 });
             });
         });
-
-
-
-
-
-        if false {
-            egui::Window::new("Window").show(ctx, |ui| {
-                ui.label("Windows can be moved by dragging them.");
-                ui.label("They are automatically sized based on contents.");
-                ui.label("You can turn on resizing and scrolling if you like.");
-                ui.label("You would normally chose either panels OR windows.");
-            });
-        }
     }
 }
 
@@ -206,104 +168,6 @@ impl Default for ArmySetupsFolder {
             show: true
         }
     }
-}
-
-#[cfg_attr(feature = "persistence", derive(serde::Deserialize, serde::Serialize, Debug, Clone))]
-pub enum Faction {
-    BM,
-    BRT,
-    CH,
-    DE,
-    DW,
-    EMP,
-    GS,
-    HE,
-    LM,
-    NRS,
-    SKV,
-    TK,
-    VC,
-    VP,
-    WE,
-    UNKNOWN,
-    ALL
-}
-
-pub fn get_army_faction(file_name: &OsString) -> Faction{
-    let lower_file = file_name.to_str().unwrap().to_ascii_lowercase();
-    if lower_file.contains("bm vs") {
-        return Faction::BM;
-    } else if lower_file.contains("brt vs") {
-        return Faction::BRT;
-    } else if lower_file.contains("ch vs") {
-        return Faction::CH;
-    } else if lower_file.contains("dw vs") {
-        return Faction::DW;
-    } else if lower_file.contains("emp vs") {
-        return Faction::EMP;
-    } else if lower_file.contains("ew vs") {
-        return Faction::DW;
-    } else if lower_file.contains("de vs") {
-        return Faction::DE;
-    }
-    else if lower_file.contains("gs vs") {
-        return Faction::GS;
-    } else if lower_file.contains("he vs") {
-        return Faction::HE;
-    }else if lower_file.contains("lm vs") {
-        return Faction::LM;
-    }else if lower_file.contains("nrs vs") {
-        return Faction::NRS;
-    }else if lower_file.contains("skv vs") {
-        return Faction::SKV;
-    }else if lower_file.contains("tk vs") {
-        return Faction::TK;
-    }else if lower_file.contains("vc vs") {
-        return Faction::VC;
-    }else if lower_file.contains("vp vs") {
-        return Faction::VP;
-    }else if lower_file.contains("we vs") {
-        return Faction::WE;
-    }
-    Faction::UNKNOWN
-}
-
-pub fn get_vs_faction(file_name: &OsString) -> Faction{
-    let lower_file = file_name.to_str().unwrap().to_ascii_lowercase();
-    if lower_file.contains("vs bm") {
-        return Faction::BM;
-    } else if lower_file.contains("vs brt") {
-        return Faction::BRT;
-    } else if lower_file.contains("vs ch") {
-        return Faction::CH;
-    } else if lower_file.contains("vs de") {
-        return Faction::DE;
-    } else if lower_file.contains("vs dw") {
-        return Faction::DW;
-    } else if lower_file.contains("vs emp") {
-        return Faction::EMP;
-    } else if lower_file.contains("vs gs") {
-        return Faction::GS;
-    } else if lower_file.contains("vs he") {
-        return Faction::HE;
-    }else if lower_file.contains("vs lm") {
-        return Faction::LM;
-    }else if lower_file.contains("vs nrs") {
-        return Faction::NRS;
-    }else if lower_file.contains("vs skv") {
-        return Faction::SKV;
-    }else if lower_file.contains("vs tk") {
-        return Faction::TK;
-    }else if lower_file.contains("vs vc") {
-        return Faction::VC;
-    }else if lower_file.contains("vs vp") {
-        return Faction::VP;
-    }else if lower_file.contains("vs we") {
-        return Faction::WE;
-    }else if lower_file.contains("vs aa") {
-        return Faction::ALL;
-    }
-    Faction::UNKNOWN
 }
 
 
@@ -330,12 +194,18 @@ impl Default for ArmyBuild {
 #[cfg_attr(feature = "persistence", derive(serde::Deserialize, serde::Serialize, Clone))]
 pub struct ArmySetupsManager {
     load_folder: ArmySetupsFolder,
+
     army_builds: Vec<ArmyBuild>,
     displayed_builds: Vec<ArmyBuild>,
     search_string: String,
     search_faction: Faction,
     search_vs_faction: Faction,
     selected_army_build: ArmyBuild,
+    max_display_builds: usize,
+    track_item: usize,
+    tack_item_align: Align,
+    offset: f32,
+
     insert_name: String,
     insert_folder: ArmySetupsFolder,
 }
@@ -344,17 +214,24 @@ impl Default for ArmySetupsManager {
     fn default() -> Self {
         Self {
             load_folder: ArmySetupsFolder::default(),
+
             army_builds: vec![],
             displayed_builds: vec![],
             search_string: "".to_owned(),
             search_faction: Faction::ALL,
             search_vs_faction: Faction::ALL,
             selected_army_build: ArmyBuild::default(),
+            max_display_builds: 50,
+            track_item: usize::MAX,
+            tack_item_align: Align::Center,
+            offset: 0.0,
+
             insert_name: "AAAAAGGGHHWWWAAAAAAA".to_owned(),
             insert_folder: ArmySetupsFolder::default(),
         }
     }
 }
+
 
 impl ArmySetupsManager {
     pub fn valid_insert_name(&self) -> Result<String, String> {
@@ -383,6 +260,118 @@ impl ArmySetupsManager {
             Err(e) => return Err(e),
         }
         Ok(())
+    }
+
+    fn update_display_builds(&mut self){
+        let mut display_builds : Vec<ArmyBuild> = vec![];
+        //check faction
+        if self.search_faction == Faction::ALL {
+            display_builds = self.army_builds.clone();
+        }
+        else {
+            for build in self.army_builds.iter() {
+                if build.faction == self.search_faction {
+                    display_builds.push(build.clone());
+                }
+            }
+        }
+
+        if self.search_vs_faction != Faction::ALL{
+            for ii in (0..display_builds.len()).rev() {
+                if display_builds[ii].vs_faction != self.search_vs_faction {
+                    display_builds.remove(ii);
+                }
+            }
+        }
+        //todo finish and update
+    }
+
+
+    fn army_selector_scrolling_ui(&mut self, ui: &mut Ui, ctx: &egui::CtxRef) {
+        ui.horizontal(|ui|{
+            if ui.button("Search").clicked() {
+                println!("search {} todo search & update display function", self.search_string);
+            }
+            if ui.text_edit_singleline(&mut self.search_string).lost_kb_focus() && ctx.input().key_pressed(egui::Key::Enter){
+                println!("enter search :) {} todo search & update display function", self.search_string);
+            }
+        });
+
+        ui.horizontal(|ui|{
+            //ui.add(doc_link_label("Combo box", "faction_search"));
+            egui::combo_box_with_label(ui, "Faction", format!("{:?}", &mut self.search_faction), |ui| {
+                ui.selectable_value(&mut self.search_faction, Faction::ALL, get_faction_abbreviations(Faction::ALL));
+                ui.selectable_value(&mut self.search_faction, Faction::BM, get_faction_abbreviations(Faction::BM));
+                ui.selectable_value(&mut self.search_faction, Faction::BRT, get_faction_abbreviations(Faction::BRT));
+                ui.selectable_value(&mut self.search_faction, Faction::DE, get_faction_abbreviations(Faction::DE));
+            });
+            egui::combo_box_with_label(ui, " vs Faction", format!("{:?}", &mut self.search_vs_faction), |ui| {
+                ui.selectable_value(&mut self.search_vs_faction, Faction::ALL, get_faction_abbreviations(Faction::ALL));
+                ui.selectable_value(&mut self.search_vs_faction, Faction::BM, get_faction_abbreviations(Faction::BM));
+                ui.selectable_value(&mut self.search_vs_faction, Faction::BRT, get_faction_abbreviations(Faction::BRT));
+                ui.selectable_value(&mut self.search_vs_faction, Faction::DE, get_faction_abbreviations(Faction::DE));
+            });
+        });
+
+
+        let mut track_item = false;
+        let mut go_to_scroll_offset = false;
+        let mut scroll_top = false;
+        let mut scroll_bottom = false;
+
+
+        ui.horizontal(|ui| {
+            scroll_top |= ui.button("Scroll to top").clicked();
+            scroll_bottom |= ui.button("Scroll to bottom").clicked();
+        });
+
+        let mut scroll_area = ScrollArea::from_max_height(200.0);
+        if go_to_scroll_offset {
+            scroll_area = scroll_area.scroll_offset(self.offset);
+        }
+
+        ui.separator();
+        let (current_scroll, max_scroll) = scroll_area.show(ui, |ui| {
+            if scroll_top {
+                ui.scroll_to_cursor(Align::TOP);
+            }
+            ui.vertical(|ui| {
+                for item in 1..=50 {
+                    if track_item && item == self.track_item {
+                        let response =
+                            ui.colored_label(Color32::YELLOW, format!("This is item {}", item));
+                        response.scroll_to_me(self.tack_item_align);
+                        if response.clicked(){
+                            println!("Clicked Selected");
+                        }
+                    } else {
+                        let mut response = ui.label(format!("This is item {}", item));
+                        if response.clicked(){
+
+                            self.track_item = item;
+                            println!("New Selected {}",  self.track_item);
+                        }
+                    }
+                }
+            });
+
+            if scroll_bottom {
+                ui.scroll_to_cursor(Align::BOTTOM);
+            }
+
+            let margin = ui.visuals().clip_rect_margin;
+
+            let current_scroll = ui.clip_rect().top() - ui.min_rect().top() + margin;
+            let max_scroll = ui.min_rect().height() - ui.clip_rect().height() + 2.0 * margin;
+            (current_scroll, max_scroll)
+        });
+        ui.separator();
+
+
+        ui.horizontal(|ui| {
+            ui.label("Selected ");
+            ui.label(self.selected_army_build.file_name.to_str().unwrap());
+        });
     }
 }
 
@@ -484,8 +473,8 @@ pub fn load_army_builds(folder_path: &str) -> Vec<ArmyBuild>{
                     ArmyBuild {
                         file: entry.path(),
                         file_name: file_stem.clone(),
-                        faction: get_army_faction(&file_stem),
-                        vs_faction: get_vs_faction(&file_stem)
+                        faction: parse_faction(&file_stem),
+                        vs_faction: parse_vs_faction(&file_stem)
                     }
                 );
                 //println!("{:?} {:?} {:?}", builds.last().unwrap().file_name, builds.last().unwrap().faction, builds.last().unwrap().vs_faction);
@@ -535,246 +524,4 @@ fn visit_dirs(dir: &Path, cb: &dyn Fn(&DirEntry) -> bool) -> io::Result<bool> {
         }
     }
     Ok(true)
-}
-
-
-#[cfg_attr(feature = "persistence", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "persistence", serde(default))]
-#[derive(PartialEq)]
-pub struct Scrolling {
-    track_item: usize,
-    tack_item_align: Align,
-    offset: f32,
-}
-
-impl Default for Scrolling {
-    fn default() -> Self {
-        Self {
-            track_item: 25,
-            tack_item_align: Align::Center,
-            offset: 0.0,
-        }
-    }
-}
-
-impl Scrolling {
-    fn name(&self) -> &'static str {
-        "↕ Scrolling"
-    }
-
-    fn show(&mut self, ctx: &egui::CtxRef, open: &mut bool) {
-        egui::Window::new(self.name())
-            .open(open)
-            .resizable(false)
-            .show(ctx, |ui| {
-                self.ui(ui);
-            });
-    }
-
-    fn ui(&mut self, ui: &mut Ui) {
-        ui.label("This shows how you can scroll to a specific item or pixel offset");
-
-        let mut track_item = false;
-        let mut go_to_scroll_offset = false;
-        let mut scroll_top = false;
-        let mut scroll_bottom = false;
-
-        ui.horizontal(|ui| {
-            ui.label("Scroll to a specific item index:");
-            track_item |= ui
-                .add(Slider::usize(&mut self.track_item, 1..=50).text("Track Item"))
-                .dragged();
-        });
-
-        ui.horizontal(|ui| {
-            ui.label("Item align:");
-            track_item |= ui
-                .radio_value(&mut self.tack_item_align, Align::Min, "Top")
-                .clicked();
-            track_item |= ui
-                .radio_value(&mut self.tack_item_align, Align::Center, "Center")
-                .clicked();
-            track_item |= ui
-                .radio_value(&mut self.tack_item_align, Align::Max, "Bottom")
-                .clicked();
-        });
-
-        ui.horizontal(|ui| {
-            ui.label("Scroll to a specific offset:");
-            go_to_scroll_offset |= ui
-                .add(DragValue::f32(&mut self.offset).speed(1.0).suffix("px"))
-                .dragged();
-        });
-
-        ui.horizontal(|ui| {
-            scroll_top |= ui.button("Scroll to top").clicked();
-            scroll_bottom |= ui.button("Scroll to bottom").clicked();
-        });
-
-        let mut scroll_area = ScrollArea::from_max_height(200.0);
-        if go_to_scroll_offset {
-            scroll_area = scroll_area.scroll_offset(self.offset);
-        }
-
-        ui.separator();
-        let (current_scroll, max_scroll) = scroll_area.show(ui, |ui| {
-            if scroll_top {
-                ui.scroll_to_cursor(Align::TOP);
-            }
-            ui.vertical(|ui| {
-                for item in 1..=50 {
-                    if track_item && item == self.track_item {
-                        let response =
-                            ui.colored_label(Color32::YELLOW, format!("This is item {}", item));
-                        response.scroll_to_me(self.tack_item_align);
-                    } else {
-                        ui.label(format!("This is item {}", item));
-                    }
-                }
-            });
-
-            if scroll_bottom {
-                ui.scroll_to_cursor(Align::BOTTOM);
-            }
-
-            let margin = ui.visuals().clip_rect_margin;
-
-            let current_scroll = ui.clip_rect().top() - ui.min_rect().top() + margin;
-            let max_scroll = ui.min_rect().height() - ui.clip_rect().height() + 2.0 * margin;
-            (current_scroll, max_scroll)
-        });
-        ui.separator();
-
-        ui.label(format!(
-            "Scroll offset: {:.0}/{:.0} px",
-            current_scroll, max_scroll
-        ));
-
-        ui.separator();
-        ui.vertical_centered(|ui| {
-            egui::reset_button(ui, self);
-            //ui.add(crate::__egui_github_link_file!());
-        });
-    }
-}
-
-
-#[cfg_attr(feature = "persistence", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "persistence", serde(default))]
-#[derive(PartialEq)]
-pub struct ArmyDisplayScroll {
-    track_item: usize,
-    tack_item_align: Align,
-    offset: f32,
-}
-
-impl Default for ArmyDisplayScroll {
-    fn default() -> Self {
-        Self {
-            track_item: 25,
-            tack_item_align: Align::Center,
-            offset: 0.0,
-        }
-    }
-}
-
-impl ArmyDisplayScroll {
-    fn name(&self) -> &'static str {
-        "↕ Scrolling"
-    }
-
-    fn show(&mut self, ctx: &egui::CtxRef, open: &mut bool) {
-        egui::Window::new(self.name())
-            .open(open)
-            .resizable(false)
-            .show(ctx, |ui| {
-                self.ui(ui);
-            });
-    }
-
-    fn ui(&mut self, ui: &mut Ui) {
-        ui.label("This shows how you can scroll to a specific item or pixel offset");
-
-        let mut track_item = false;
-        let mut go_to_scroll_offset = false;
-        let mut scroll_top = false;
-        let mut scroll_bottom = false;
-
-        ui.horizontal(|ui| {
-            ui.label("Scroll to a specific item index:");
-            track_item |= ui
-                .add(Slider::usize(&mut self.track_item, 1..=50).text("Track Item"))
-                .dragged();
-        });
-
-        ui.horizontal(|ui| {
-            ui.label("Item align:");
-            track_item |= ui
-                .radio_value(&mut self.tack_item_align, Align::Min, "Top")
-                .clicked();
-            track_item |= ui
-                .radio_value(&mut self.tack_item_align, Align::Center, "Center")
-                .clicked();
-            track_item |= ui
-                .radio_value(&mut self.tack_item_align, Align::Max, "Bottom")
-                .clicked();
-        });
-
-        ui.horizontal(|ui| {
-            ui.label("Scroll to a specific offset:");
-            go_to_scroll_offset |= ui
-                .add(DragValue::f32(&mut self.offset).speed(1.0).suffix("px"))
-                .dragged();
-        });
-
-        ui.horizontal(|ui| {
-            scroll_top |= ui.button("Scroll to top").clicked();
-            scroll_bottom |= ui.button("Scroll to bottom").clicked();
-        });
-
-        let mut scroll_area = ScrollArea::from_max_height(200.0);
-        if go_to_scroll_offset {
-            scroll_area = scroll_area.scroll_offset(self.offset);
-        }
-
-        ui.separator();
-        let (current_scroll, max_scroll) = scroll_area.show(ui, |ui| {
-            if scroll_top {
-                ui.scroll_to_cursor(Align::TOP);
-            }
-            ui.vertical(|ui| {
-                for item in 1..=50 {
-                    if track_item && item == self.track_item {
-                        let response =
-                            ui.colored_label(Color32::YELLOW, format!("This is item {}", item));
-                        response.scroll_to_me(self.tack_item_align);
-                    } else {
-                        ui.label(format!("This is item {}", item));
-                    }
-                }
-            });
-
-            if scroll_bottom {
-                ui.scroll_to_cursor(Align::BOTTOM);
-            }
-
-            let margin = ui.visuals().clip_rect_margin;
-
-            let current_scroll = ui.clip_rect().top() - ui.min_rect().top() + margin;
-            let max_scroll = ui.min_rect().height() - ui.clip_rect().height() + 2.0 * margin;
-            (current_scroll, max_scroll)
-        });
-        ui.separator();
-
-        ui.label(format!(
-            "Scroll offset: {:.0}/{:.0} px",
-            current_scroll, max_scroll
-        ));
-
-        ui.separator();
-        ui.vertical_centered(|ui| {
-            egui::reset_button(ui, self);
-            //ui.add(crate::__egui_github_link_file!());
-        });
-    }
 }
