@@ -2,7 +2,10 @@
 #![warn(clippy::all, rust_2018_idioms)]
 
 mod app;
-mod factions;
+pub mod army_build;
+pub mod army_setups_folder;
+pub mod army_setups_manager;
+pub mod factions;
 pub use app::WarbossWaaghitApp;
 
 // ----------------------------------------------------------------------------

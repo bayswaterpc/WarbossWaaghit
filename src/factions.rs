@@ -1,6 +1,7 @@
-use std::ffi::{OsStr, OsString};
-
-#[cfg_attr(feature = "persistence", derive(serde::Deserialize, serde::Serialize, Debug, Clone, PartialEq))]
+#[cfg_attr(
+    feature = "persistence",
+    derive(serde::Deserialize, serde::Serialize, Debug, Clone, PartialEq)
+)]
 pub enum Faction {
     BM,
     BRT,
@@ -18,7 +19,7 @@ pub enum Faction {
     VP,
     WE,
     UNKNOWN,
-    ALL
+    ALL,
 }
 
 pub fn get_faction_abbreviations(faction: Faction) -> &'static str {
@@ -32,14 +33,14 @@ pub fn get_faction_abbreviations(faction: Faction) -> &'static str {
         Faction::GS => "GS",
         Faction::HE => "HE",
         Faction::LM => "LM",
-        Faction::NRS=> "NRS",
-        Faction::SKV=> "SKV",
-        Faction::TK=> "TK",
+        Faction::NRS => "NRS",
+        Faction::SKV => "SKV",
+        Faction::TK => "TK",
         Faction::VC => "VC",
         Faction::VP => "VP",
         Faction::WE => "WE",
         Faction::UNKNOWN => "UNKNOWN",
-        Faction::ALL => "ALL"
+        Faction::ALL => "ALL",
     }
 }
 
@@ -54,19 +55,19 @@ pub fn _get_faction_names(faction: Faction) -> &'static str {
         Faction::GS => "Greenskins",
         Faction::HE => "High Elves",
         Faction::LM => "Lizardmen",
-        Faction::NRS=> "Norsca",
-        Faction::SKV=> "Skaven",
-        Faction::TK=> "Tomb Kings",
+        Faction::NRS => "Norsca",
+        Faction::SKV => "Skaven",
+        Faction::TK => "Tomb Kings",
         Faction::VC => "Vampire Counts",
         Faction::VP => "Vampire Coast",
         Faction::WE => "Woodelves",
         Faction::UNKNOWN => "Unknown",
-        Faction::ALL => "All"
+        Faction::ALL => "All",
     }
 }
 
-pub fn parse_faction(file_name: &OsString) -> Faction{
-    let lower_file = file_name.to_str().unwrap().to_ascii_lowercase();
+pub fn parse_faction(file_name: &String) -> Faction {
+    let lower_file = file_name.to_ascii_lowercase();
     if lower_file.contains("bm vs") {
         return Faction::BM;
     } else if lower_file.contains("brt vs") {
@@ -81,31 +82,30 @@ pub fn parse_faction(file_name: &OsString) -> Faction{
         return Faction::DW;
     } else if lower_file.contains("de vs") {
         return Faction::DE;
-    }
-    else if lower_file.contains("gs vs") {
+    } else if lower_file.contains("gs vs") {
         return Faction::GS;
     } else if lower_file.contains("he vs") {
         return Faction::HE;
-    }else if lower_file.contains("lm vs") {
+    } else if lower_file.contains("lm vs") {
         return Faction::LM;
-    }else if lower_file.contains("nrs vs") {
+    } else if lower_file.contains("nrs vs") {
         return Faction::NRS;
-    }else if lower_file.contains("skv vs") {
+    } else if lower_file.contains("skv vs") {
         return Faction::SKV;
-    }else if lower_file.contains("tk vs") {
+    } else if lower_file.contains("tk vs") {
         return Faction::TK;
-    }else if lower_file.contains("vc vs") {
+    } else if lower_file.contains("vc vs") {
         return Faction::VC;
-    }else if lower_file.contains("vp vs") {
+    } else if lower_file.contains("vp vs") {
         return Faction::VP;
-    }else if lower_file.contains("we vs") {
+    } else if lower_file.contains("we vs") {
         return Faction::WE;
     }
     Faction::UNKNOWN
 }
 
-pub fn parse_vs_faction(file_name: &OsString) -> Faction{
-    let lower_file = file_name.to_str().unwrap().to_ascii_lowercase();
+pub fn parse_vs_faction(file_name: &String) -> Faction {
+    let lower_file = file_name.to_ascii_lowercase();
     if lower_file.contains("vs bm") {
         return Faction::BM;
     } else if lower_file.contains("vs brt") {
@@ -122,21 +122,21 @@ pub fn parse_vs_faction(file_name: &OsString) -> Faction{
         return Faction::GS;
     } else if lower_file.contains("vs he") {
         return Faction::HE;
-    }else if lower_file.contains("vs lm") {
+    } else if lower_file.contains("vs lm") {
         return Faction::LM;
-    }else if lower_file.contains("vs nrs") {
+    } else if lower_file.contains("vs nrs") {
         return Faction::NRS;
-    }else if lower_file.contains("vs skv") {
+    } else if lower_file.contains("vs skv") {
         return Faction::SKV;
-    }else if lower_file.contains("vs tk") {
+    } else if lower_file.contains("vs tk") {
         return Faction::TK;
-    }else if lower_file.contains("vs vc") {
+    } else if lower_file.contains("vs vc") {
         return Faction::VC;
-    }else if lower_file.contains("vs vp") {
+    } else if lower_file.contains("vs vp") {
         return Faction::VP;
-    }else if lower_file.contains("vs we") {
+    } else if lower_file.contains("vs we") {
         return Faction::WE;
-    }else if lower_file.contains("vs aa") {
+    } else if lower_file.contains("vs aa") {
         return Faction::ALL;
     }
     Faction::UNKNOWN
