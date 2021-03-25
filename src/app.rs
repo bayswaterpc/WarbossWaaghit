@@ -1,7 +1,5 @@
 use eframe::{egui, epi};
-use rand::Rng;
 
-use crate::army_setups_folder::ArmySetupsFolder;
 use crate::army_setups_manager::ArmySetupsManager;
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
@@ -116,60 +114,10 @@ impl epi::App for WarbossWaaghitApp {
 
 
             egui::CollapsingHeader::new("Insert Army Setup").default_open(false).show(ui, |ui| {
-                ui.horizontal(|ui| {
-                    if ui.button("Insert Build as ").clicked() {
-                        let mut rng = rand::thread_rng();
-                        let indx : usize = rng.gen_range(0..army_setups_manager.army_builds.len());
-                        println!("inserting {}", army_setups_manager.army_builds[indx].file_stem.as_str());
-                        army_setups_manager.selected_army_build = army_setups_manager.army_builds[indx].clone();
-                        match insert_army(&army_setups_manager, &army_setups_manager.insert_folder){
-                            Ok(()) => {println!("inserted")},
-                            Err(e) => {println!("err {}", e)}
-                        }
-                    }
-                    if ui.text_edit_singleline(&mut army_setups_manager.insert_name).lost_kb_focus() && ctx.input().key_pressed(egui::Key::Enter){
-                        let mut rng = rand::thread_rng();
-                        let indx : usize = rng.gen_range(0..army_setups_manager.army_builds.len());
-                        println!("inserting {}", army_setups_manager.army_builds[indx].file_stem.as_str());
-                        army_setups_manager.selected_army_build = army_setups_manager.army_builds[indx].clone();
-                        match insert_army(&army_setups_manager, &army_setups_manager.insert_folder){
-                            Ok(()) => {println!("inserted")},
-                            Err(e) => {println!("err {}", e)}
-                        }
-                    }
-                });
+                army_setups_manager.insert_army_ui(ui, ctx);
             });
         });
     }
 }
 
 // ----------------------------------------------------------------------------
-
-pub fn insert_army(picker: &ArmySetupsManager, folder: &ArmySetupsFolder) -> Result<(), String> {
-    //Check If Inputs Valid
-    if !folder.valid_folder {
-        return Err("You're folder's no good".to_string());
-    }
-    let insert_name = match picker.valid_insert_name() {
-        Ok(valid_name) => valid_name,
-        Err(e) => {
-            return Err(e);
-        }
-    };
-
-    let selected_file = picker.selected_army_build.file.to_str().unwrap(); //osstring prevalidated so none option should be fine
-    if !picker.selected_army_build.file.is_file() {
-        println!("{}", selected_file);
-        return Err("Da army file went missing!!!!".to_string());
-    }
-
-    //Do Copy
-    let insert_file = folder.folder_str.clone() + "/" + insert_name.as_str() + ".army_setup";
-    match std::fs::copy(selected_file, insert_file.as_str()) {
-        Ok(_) => Ok(()),
-        Err(e) => {
-            println!("{}", e);
-            Err("Couldn't copy".to_string())
-        }
-    }
-}

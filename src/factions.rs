@@ -1,3 +1,6 @@
+use eframe::egui;
+use eframe::egui::{Response, Ui};
+
 #[cfg_attr(
     feature = "persistence",
     derive(serde::Deserialize, serde::Serialize, Debug, Clone, PartialEq)
@@ -140,4 +143,60 @@ pub fn parse_vs_faction(file_name: &String) -> Faction {
         return Faction::ALL;
     }
     Faction::UNKNOWN
+}
+
+pub fn faction_dropdown_button(
+    ui: &mut Ui,
+    faction: &mut Faction,
+    label: &str,
+    is_vs: bool,
+) -> Response {
+    let faction_btn_response =
+        egui::combo_box_with_label(ui, label, format!("{:?}", faction), |ui| {
+            ui.selectable_value(
+                faction,
+                Faction::ALL,
+                get_faction_abbreviations(Faction::ALL),
+            );
+            ui.selectable_value(faction, Faction::BM, get_faction_abbreviations(Faction::BM));
+            ui.selectable_value(
+                faction,
+                Faction::BRT,
+                get_faction_abbreviations(Faction::BRT),
+            );
+            if !is_vs {
+                ui.selectable_value(faction, Faction::CH, get_faction_abbreviations(Faction::CH));
+            }
+            ui.selectable_value(faction, Faction::DE, get_faction_abbreviations(Faction::DE));
+            ui.selectable_value(faction, Faction::DW, get_faction_abbreviations(Faction::DW));
+            ui.selectable_value(
+                faction,
+                Faction::EMP,
+                get_faction_abbreviations(Faction::EMP),
+            );
+            ui.selectable_value(faction, Faction::GS, get_faction_abbreviations(Faction::GS));
+            ui.selectable_value(faction, Faction::HE, get_faction_abbreviations(Faction::HE));
+            ui.selectable_value(faction, Faction::LM, get_faction_abbreviations(Faction::LM));
+            ui.selectable_value(
+                faction,
+                Faction::NRS,
+                get_faction_abbreviations(Faction::NRS),
+            );
+            ui.selectable_value(
+                faction,
+                Faction::SKV,
+                get_faction_abbreviations(Faction::SKV),
+            );
+            ui.selectable_value(faction, Faction::TK, get_faction_abbreviations(Faction::TK));
+            ui.selectable_value(faction, Faction::VC, get_faction_abbreviations(Faction::VC));
+            ui.selectable_value(faction, Faction::VP, get_faction_abbreviations(Faction::VP));
+            ui.selectable_value(faction, Faction::WE, get_faction_abbreviations(Faction::WE));
+            ui.selectable_value(faction, Faction::WE, get_faction_abbreviations(Faction::WE));
+            ui.selectable_value(
+                faction,
+                Faction::UNKNOWN,
+                get_faction_abbreviations(Faction::UNKNOWN),
+            );
+        });
+    faction_btn_response
 }
