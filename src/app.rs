@@ -16,6 +16,7 @@ impl Default for WarbossWaaghitApp {
     }
 }
 
+//Git note on debugging
 impl epi::App for WarbossWaaghitApp {
     fn name(&self) -> &str {
         "Generals Chest"
