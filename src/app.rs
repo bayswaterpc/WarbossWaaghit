@@ -19,7 +19,8 @@ impl Default for WarbossWaaghitApp {
 //Git note on debugging
 impl epi::App for WarbossWaaghitApp {
     fn name(&self) -> &str {
-        "Generals Chest"
+        //"Generals Chest" //causes the window to be suppressed
+        "Generals Chessst"
     }
 
     /// Called by the framework to load old app state (if any).
