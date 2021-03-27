@@ -19,8 +19,8 @@ impl Default for WarbossWaaghitApp {
 //Git note on debugging
 impl epi::App for WarbossWaaghitApp {
     fn name(&self) -> &str {
-        //"Generals Chest" //causes the window to be suppressed
-        "Generals Chessst"
+        //"Generals Chest" //causes the window to be suppressed  //only causes suppression on 1 machine
+        "Generals Chest"
     }
 
     /// Called by the framework to load old app state (if any).
@@ -41,11 +41,6 @@ impl epi::App for WarbossWaaghitApp {
         let WarbossWaaghitApp {
             army_setups_manager,
         } = self;
-
-        // Examples of how to create different panels and windows.
-        // Pick whichever suits you.
-        // Tip: a good default choice is to just keep the `CentralPanel`.
-        // For inspiration and more examples, go to https://emilk.github.io/egui
 
         egui::SidePanel::left("side_panel", 200.0).show(ctx, |ui| {
             ui.heading("Warboss Waaghit");
@@ -74,50 +69,7 @@ impl epi::App for WarbossWaaghitApp {
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
-
-
-            egui::CollapsingHeader::new("Load Army Setups")
-                .default_open(army_setups_manager.insert_folder.show)
-                .show(ui, |ui| {
-                    ui.horizontal(|ui| {
-                        if ui.button("Load Folder").clicked() {
-                            match army_setups_manager.load_folder(){
-                                Ok(_) => {}
-                                Err(e) => {println!("{}", e)}
-                            }
-                        }
-                        if ui.text_edit_singleline(&mut army_setups_manager.insert_folder.folder_str).lost_kb_focus() && ctx.input().key_pressed(egui::Key::Enter) {
-                            match army_setups_manager.load_folder(){
-                                Ok(_) => {}
-                                Err(e) => {println!("{}", e)}
-                            }
-                        }
-                    });
-
-                    egui::CollapsingHeader::new("Hint")
-                        .default_open(false)
-                        .show(ui, |ui| {
-                            ui.label("This can be any folder with a \'.army_setup\' file");
-                            ui.label("The default army setup save folder can be found in your TWW2 Roaming AppData folder ex:");
-                            ui.label("C:\\Users\\DaBiggestBoss\\AppData\\Roaming\\The Creative Assembly\\Warhammer2\\army_setups");
-                        });
-                });
-
-
-
-
-            egui::CollapsingHeader::new("Select Army Setup").default_open(false).show(ui, |ui| {
-                if army_setups_manager.army_builds.is_empty() {
-                    ui.label("You got to load some armies first");
-                }else {
-                    army_setups_manager.army_selector_scrolling_ui(ui, ctx);
-                }
-            });
-
-
-            egui::CollapsingHeader::new("Insert Army Setup").default_open(false).show(ui, |ui| {
-                army_setups_manager.insert_army_ui(ui, ctx);
-            });
+            army_setups_manager.selector_central_panel_ui(ui, ctx);
         });
     }
 }

@@ -1,6 +1,6 @@
 use crate::army_build::ArmyBuild;
 use crate::army_setups_folder::{load_army_builds, valid_load_folder, ArmySetupsFolder};
-use crate::factions::{faction_dropdown_button, get_faction_abbreviations, Faction};
+use crate::factions::{faction_dropdown_button, get_faction_abbreviations, Wh2Factions};
 use eframe::egui;
 use eframe::egui::{Align, Color32, ScrollArea, Ui};
 use std::ffi::OsString;
@@ -15,8 +15,8 @@ pub struct ArmySetupsManager {
     pub(crate) army_builds: Vec<ArmyBuild>,
     display_builds: Vec<ArmyBuild>,
     search_string: String,
-    search_faction: Faction,
-    search_vs_faction: Faction,
+    search_faction: Wh2Factions,
+    search_vs_faction: Wh2Factions,
     pub(crate) selected_army_build: ArmyBuild,
     max_display_builds: usize,
     track_item: usize,
@@ -35,8 +35,8 @@ impl Default for ArmySetupsManager {
             army_builds: vec![],
             display_builds: vec![],
             search_string: "".to_owned(),
-            search_faction: Faction::ALL,
-            search_vs_faction: Faction::ALL,
+            search_faction: Wh2Factions::ALL,
+            search_vs_faction: Wh2Factions::ALL,
             selected_army_build: ArmyBuild::default(),
             max_display_builds: 50,
             track_item: usize::MAX,
@@ -83,7 +83,7 @@ impl ArmySetupsManager {
     fn update_display_builds(&mut self) {
         let mut display_builds: Vec<ArmyBuild> = vec![];
         //check faction
-        if self.search_faction == Faction::ALL {
+        if self.search_faction == Wh2Factions::ALL {
             display_builds = self.army_builds.clone();
         } else {
             for build in self.army_builds.iter() {
@@ -93,7 +93,7 @@ impl ArmySetupsManager {
             }
         }
 
-        if self.search_vs_faction != Faction::ALL {
+        if self.search_vs_faction != Wh2Factions::ALL {
             for ii in (0..display_builds.len()).rev() {
                 if display_builds[ii].vs_faction != self.search_vs_faction {
                     display_builds.remove(ii);
@@ -261,5 +261,50 @@ impl ArmySetupsManager {
                 }
             }
         });
+    }
+
+    pub fn selector_central_panel_ui(&mut self, ui: &mut Ui, ctx: &egui::CtxRef) {
+        egui::CollapsingHeader::new("Load Army Setups")
+            .default_open(self.insert_folder.show)
+            .show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    if ui.button("Load Folder").clicked() {
+                        match self.load_folder(){
+                            Ok(_) => {}
+                            Err(e) => {println!("{}", e)}
+                        }
+                    }
+                    if ui.text_edit_singleline(&mut self.insert_folder.folder_str).lost_kb_focus() && ctx.input().key_pressed(egui::Key::Enter) {
+                        match self.load_folder(){
+                            Ok(_) => {}
+                            Err(e) => {println!("{}", e)}
+                        }
+                    }
+                });
+
+                egui::CollapsingHeader::new("Hint")
+                    .default_open(false)
+                    .show(ui, |ui| {
+                        ui.label("This can be any folder with a \'.army_setup\' file");
+                        ui.label("The default army setup save folder can be found in your TWW2 Roaming AppData folder ex:");
+                        ui.label("C:\\Users\\DaBiggestBoss\\AppData\\Roaming\\The Creative Assembly\\Warhammer2\\army_setups");
+                    });
+            });
+
+        egui::CollapsingHeader::new("Select Army Setup")
+            .default_open(false)
+            .show(ui, |ui| {
+                if self.army_builds.is_empty() {
+                    ui.label("You got to load some armies first");
+                } else {
+                    self.army_selector_scrolling_ui(ui, ctx);
+                }
+            });
+
+        egui::CollapsingHeader::new("Insert Army Setup")
+            .default_open(false)
+            .show(ui, |ui| {
+                self.insert_army_ui(ui, ctx);
+            });
     }
 }

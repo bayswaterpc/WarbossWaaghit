@@ -1,4 +1,4 @@
-use crate::factions::Faction;
+use crate::factions::Wh2Factions;
 use std::path::PathBuf;
 
 #[cfg_attr(
@@ -8,8 +8,8 @@ use std::path::PathBuf;
 pub struct ArmyBuild {
     pub file: PathBuf,
     pub file_stem: String,
-    pub faction: Faction,
-    pub vs_faction: Faction,
+    pub faction: Wh2Factions,
+    pub vs_faction: Wh2Factions,
 }
 
 impl Default for ArmyBuild {
@@ -17,8 +17,8 @@ impl Default for ArmyBuild {
         Self {
             file: PathBuf::new(),
             file_stem: String::new(),
-            faction: Faction::UNKNOWN,
-            vs_faction: Faction::UNKNOWN,
+            faction: Wh2Factions::UNKNOWN,
+            vs_faction: Wh2Factions::UNKNOWN,
         }
     }
 }
