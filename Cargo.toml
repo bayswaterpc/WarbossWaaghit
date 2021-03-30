@@ -20,6 +20,10 @@ path = "src/main.rs"
 eframe = "0.10.0" # Gives us egui, epi and web+native backends
 rand = "0.8.0"
 serde = { version = "1", features = ["derive"], optional = true }
+walkdir = "2"
+glob = "0.3.0"
+dirs = "3.0.1"
+directories = "3.0.1"
 
 [features]
 default = ["persistence"]

@@ -1,6 +1,6 @@
 use crate::army_build::ArmyBuild;
 use crate::army_setups_folder::{load_army_builds, valid_load_folder, ArmySetupsFolder};
-use crate::factions::{faction_dropdown_button, get_faction_abbreviations, Wh2Factions};
+use crate::factions::{faction_dropdown_button, Wh2Factions};
 use eframe::egui;
 use eframe::egui::{Align, Color32, ScrollArea, Ui};
 use std::ffi::OsString;

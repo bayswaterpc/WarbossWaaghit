@@ -1,6 +1,5 @@
-use eframe::{egui, epi};
-
 use crate::army_setups_manager::ArmySetupsManager;
+use eframe::{egui, epi};
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[cfg_attr(feature = "persistence", derive(serde::Deserialize, serde::Serialize))]
@@ -19,8 +18,8 @@ impl Default for WarbossWaaghitApp {
 //Git note on debugging
 impl epi::App for WarbossWaaghitApp {
     fn name(&self) -> &str {
-        //"Generals Chest" //causes the window to be suppressed  //only causes suppression on 1 machine
-        "Generals Chest"
+        //"Generals Chest" //causes the window to be suppressed on original dev machine
+        "Generals Chest" //any other string name is fine
     }
 
     /// Called by the framework to load old app state (if any).
