@@ -1,9 +1,13 @@
 use crate::army_build::ArmyBuild;
-use crate::army_setups_folder::{load_army_builds, valid_load_folder, ArmySetupsFolder};
+use crate::army_setups_folder::{
+    get_user_default_army_setups_folder_dirs, load_army_builds, validate_load_folder,
+    ArmySetupsFolder,
+};
 use crate::factions::{faction_dropdown_button, Wh2Factions};
 use eframe::egui;
 use eframe::egui::{Align, Color32, ScrollArea, Ui};
 use std::ffi::OsString;
+use std::path::PathBuf;
 
 #[cfg_attr(
     feature = "persistence",
@@ -29,10 +33,28 @@ pub struct ArmySetupsManager {
 
 impl Default for ArmySetupsManager {
     fn default() -> Self {
+        println!("default manager");
+        let load_folder = ArmySetupsFolder::default();
+
+        let army_builds = if load_folder.is_folder() {
+            load_army_builds(load_folder.folder_string.as_str())
+        } else {
+            vec![]
+        };
+
+        let default_insert = get_user_default_army_setups_folder_dirs("Warhammer2")
+            .unwrap_or(
+                PathBuf::from("C:\\Users\\DaBiggestBoss\\AppData\\Roaming\\The Creative Assembly\\Warhammer2\\army_setups")
+            );
+
+        let insert_folder = ArmySetupsFolder {
+            folder_string: default_insert.to_string_lossy().to_string(),
+        };
+
         Self {
-            load_folder: ArmySetupsFolder::default(),
+            load_folder,
             dummy: 0,
-            army_builds: vec![],
+            army_builds,
             display_builds: vec![],
             search_string: "".to_owned(),
             search_faction: Wh2Factions::ALL,
@@ -44,7 +66,7 @@ impl Default for ArmySetupsManager {
             offset: 0.0,
 
             insert_name: "AAAAAGGGHHWWWAAAAAAA".to_owned(),
-            insert_folder: ArmySetupsFolder::default(),
+            insert_folder,
         }
     }
 }
@@ -69,10 +91,9 @@ impl ArmySetupsManager {
     }
 
     pub fn load_folder(&mut self) -> Result<(), String> {
-        match valid_load_folder(&self.insert_folder.folder_str) {
+        match validate_load_folder(&self.insert_folder.folder_string) {
             Ok(()) => {
-                let armies = load_army_builds(self.insert_folder.folder_str.as_str());
-                self.insert_folder.valid_folder = true;
+                let armies = load_army_builds(self.insert_folder.folder_string.as_str());
                 self.army_builds = armies;
             }
             Err(e) => return Err(e),
@@ -198,7 +219,7 @@ impl ArmySetupsManager {
 
     pub fn insert_army(&self) -> Result<(), String> {
         //Check If Inputs Valid
-        if !self.insert_folder.valid_folder {
+        if !self.insert_folder.is_insert_folder() {
             return Err("You're folder's no good".to_string());
         }
         let insert_name = match self.valid_insert_name() {
@@ -216,7 +237,7 @@ impl ArmySetupsManager {
 
         //Do Copy
         let insert_file =
-            self.insert_folder.folder_str.clone() + "/" + insert_name.as_str() + ".army_setup";
+            self.insert_folder.folder_string.clone() + "/" + insert_name.as_str() + ".army_setup";
         match std::fs::copy(selected_file, insert_file.as_str()) {
             Ok(_) => Ok(()),
             Err(e) => {
@@ -265,7 +286,7 @@ impl ArmySetupsManager {
 
     pub fn selector_central_panel_ui(&mut self, ui: &mut Ui, ctx: &egui::CtxRef) {
         egui::CollapsingHeader::new("Load Army Setups")
-            .default_open(self.insert_folder.show)
+            .default_open(self.insert_folder.is_load_folder())
             .show(ui, |ui| {
                 ui.horizontal(|ui| {
                     if ui.button("Load Folder").clicked() {
@@ -274,7 +295,7 @@ impl ArmySetupsManager {
                             Err(e) => {println!("{}", e)}
                         }
                     }
-                    if ui.text_edit_singleline(&mut self.insert_folder.folder_str).lost_kb_focus() && ctx.input().key_pressed(egui::Key::Enter) {
+                    if ui.text_edit_singleline(&mut self.load_folder.folder_string).lost_kb_focus() && ctx.input().key_pressed(egui::Key::Enter) {
                         match self.load_folder(){
                             Ok(_) => {}
                             Err(e) => {println!("{}", e)}
@@ -302,9 +323,28 @@ impl ArmySetupsManager {
             });
 
         egui::CollapsingHeader::new("Insert Army Setup")
-            .default_open(false)
+            .default_open(self.insert_folder.is_insert_folder())
             .show(ui, |ui| {
-                self.insert_army_ui(ui, ctx);
+                //
+                ui.horizontal(|ui| {
+                    if ui.button("Insert Folder").clicked() {}
+                    if ui
+                        .text_edit_singleline(&mut self.insert_folder.folder_string)
+                        .lost_kb_focus()
+                        && ctx.input().key_pressed(egui::Key::Enter)
+                    {
+                        match self.load_folder() {
+                            Ok(_) => {}
+                            Err(e) => {
+                                println!("{}", e)
+                            }
+                        }
+                    }
+                });
+
+                if self.insert_folder.is_insert_folder() {
+                    self.insert_army_ui(ui, ctx);
+                }
             });
     }
 }

@@ -11,36 +11,48 @@ use std::path::{Path, PathBuf};
     derive(serde::Deserialize, serde::Serialize, Clone)
 )]
 pub struct ArmySetupsFolder {
-    pub folder_str: String,
-    pub valid_folder: bool,
-    pub show: bool,
+    pub folder_string: String,
+}
+
+impl ArmySetupsFolder {
+    pub fn is_folder(&self) -> bool {
+        let path = std::path::Path::new(self.folder_string.as_str());
+        return path.exists() && path.is_dir();
+    }
+
+    pub fn is_load_folder(&self) -> bool {
+        validate_load_folder(self.folder_string.as_str()).is_ok()
+    }
+
+    pub fn is_insert_folder(&self) -> bool {
+        let valid_components = ["The Creative Assembly", "army_setups"];
+        validate_insert_folder(self.folder_string.as_str(), &valid_components).is_ok()
+    }
 }
 
 impl Default for ArmySetupsFolder {
     fn default() -> Self {
+        println!("default army setups");
+
         Self {
-            folder_str: "C:\\Users\\DaBiggestBoss\\AppData\\Roaming\\The Creative Assembly\\Warhammer2\\army_setups".to_string(),
-            valid_folder: false,
-            show: true
+            folder_string: "WarbossWaaghitSetups\\Warhammer2".to_string(),
         }
     }
 }
 
-pub fn valid_load_folder(folder_path: &str) -> Result<(), String> {
-    println!("into validate folder");
+pub fn validate_load_folder(folder_path: &str) -> Result<(), String> {
     let path = std::path::Path::new(folder_path);
     if !path.exists() {
         return Err("Dat path dont even exist!!".to_string());
     }
     if !path.is_dir() {
-        return Err("Dat path dont even exist!!".to_string());
+        return Err("Dats a file not a folder!!".to_string());
     }
 
     //make sure there are .army_setup files in the directory
     for entry in fs::read_dir(path).unwrap() {
         let entry = entry.unwrap();
         if entry.path().is_dir() {
-            println!("skip sub folder");
             continue;
         } else {
             if is_army_setup_file(&entry) {
@@ -53,75 +65,44 @@ pub fn valid_load_folder(folder_path: &str) -> Result<(), String> {
 }
 
 pub fn load_army_builds(folder_path: &str) -> Vec<ArmyBuild> {
-    // let star_path = r#"C:Users\*\AppData\Roaming\The Creative Assembly\*\army_setups"#;
-    // let v_subdirs = get_path_subdirs(Path::new(star_path));
-    // println!("b_subdirs {:?}", v_subdirs);
-    //
-    // let star_path = r#"C:\Users\jmw99\AppData\Roaming\The Creative Assembly\Warhammer2\army_setups\WE vs TK.army_setup"#;
-    // let v_subdirs = get_path_subdirs(Path::new(star_path));
-    // println!("c_subdirs {:?}", v_subdirs);
-
-    match get_user_default_army_setups_folder_dirs("Warhammer2") {
-        Ok(p) => {
-            println!("got it! {}", p.to_string_lossy())
-        }
-        Err(e) => {
-            println!("{}", e)
-        }
-    }
-
-    match get_user_default_army_setups_folder_directories("Warhammer2") {
-        Ok(p) => {
-            println!("got it! {}", p.to_string_lossy())
-        }
-        Err(e) => {
-            println!("{}", e)
-        }
-    }
-
-    // fn get_path_subdirs(dir: &Path) -> Vec<String> {
-    //     let mut subdirs = vec![];
-    //     for component in dir.components() {
-    //         let c = component.as_os_str().to_string_lossy().to_string();
-    //         subdirs.push(c);
-    //     }
-    //     subdirs
-    // }
-    //
-    // // searches for folder in a directory with handling for * any wildcard in path component
-    // fn search_for_folder(
-
     let mut builds = vec![];
-    match valid_load_folder(folder_path) {
+    match validate_load_folder(folder_path) {
         Ok(_) => {}
         Err(_) => return builds,
     }
 
     let path = std::path::Path::new(folder_path);
 
+    //use expect because of valid checks check
     //make sure there are .army_setup files in the directory
     for entry in fs::read_dir(path).unwrap() {
-        let entry = entry.unwrap();
-        if entry.path().is_dir() {
-            //skip subfolder
-            continue;
-        } else {
-            if is_army_setup_file(&entry) {
-                let file_stem = entry
-                    .path()
-                    .file_stem()
-                    .unwrap()
-                    .to_str()
-                    .unwrap()
-                    .to_string();
+        match entry {
+            Ok(entry) => {
+                if entry.path().is_dir() {
+                    //skip subfolder
+                    continue;
+                } else {
+                    if is_army_setup_file(&entry) {
+                        let file_stem = entry
+                            .path()
+                            .file_stem()
+                            .expect("load_army_builds file stem fail")
+                            .to_str()
+                            .expect("load_army_builds to_str fail")
+                            .to_string();
 
-                builds.push(ArmyBuild {
-                    file: entry.path(),
-                    file_stem: file_stem.clone(),
-                    faction: parse_faction(&file_stem),
-                    vs_faction: parse_vs_faction(&file_stem),
-                });
-                //println!("{:?} {:?} {:?}", builds.last().unwrap().file_name, builds.last().unwrap().faction, builds.last().unwrap().vs_faction);
+                        builds.push(ArmyBuild {
+                            file: entry.path(),
+                            file_stem: file_stem.clone(),
+                            faction: parse_faction(&file_stem),
+                            vs_faction: parse_vs_faction(&file_stem),
+                        });
+                        //println!("{:?} {:?} {:?}", builds.last().unwrap().file_name, builds.last().unwrap().faction, builds.last().unwrap().vs_faction);
+                    }
+                }
+            }
+            Err(_e) => {
+                continue;
             }
         }
     }
@@ -163,11 +144,10 @@ fn is_army_setup_file(file: &fs::DirEntry) -> bool {
 
 // let user_dir = "Users";
 // let setup_root = "AppData/Roaming/The Creative Assembly/Warhammer2/";
-pub fn is_valid_insert_folder(
+pub fn validate_insert_folder(
     folder_path: &str,
-    required_path_components: &Vec<&str>,
+    required_path_components: &[&str],
 ) -> Result<(), String> {
-    println!("into validate folder");
     let path = std::path::Path::new(folder_path);
     if !path.exists() {
         return Err("Dat path dont even exist!!".to_string());
@@ -185,7 +165,7 @@ pub fn is_valid_insert_folder(
     Ok(())
 }
 
-fn get_path_subdirs(dir: &Path) -> Vec<String> {
+fn _get_path_subdirs(dir: &Path) -> Vec<String> {
     let mut subdirs = vec![];
     for component in dir.components() {
         let c = component.as_os_str().to_string_lossy().to_string();
@@ -194,8 +174,9 @@ fn get_path_subdirs(dir: &Path) -> Vec<String> {
     subdirs
 }
 
+//TODO figure out how to do this with globwalk
 // searches for folder in a directory with handling for * any wildcard in path component
-fn search_for_folder(
+fn _search_for_folder(
     dir: &Path,
     folder_depth: usize,
     path_components: &Vec<String>,
@@ -228,7 +209,7 @@ fn search_for_folder(
                         if dir_string == path_components[folder_depth]
                             || path_components[folder_depth] == "*"
                         {
-                            let res = search_for_folder(
+                            let res = _search_for_folder(
                                 path.as_path(),
                                 folder_depth + 1,
                                 path_components,
@@ -255,19 +236,18 @@ fn search_for_folder(
             }
         }
     }
-
     Err((max_err_depth, err_message))
 }
 
 //this code block is failing
 //returns path to folder if exists
-fn get_user_default_army_setups_folder_dirs(game: &str) -> Result<PathBuf, String> {
+pub fn get_user_default_load_army_setups_folder_dirs(game: &str) -> Result<PathBuf, String> {
     if let Some(mut p) = dirs::home_dir() {
-        p = p.join("AppData\\Roaming\\The Creative Assembly");
+        p = p.join("AppData\\Roaming\\OWAAGH");
         p = p.join(game);
-        println!("{}", p.to_string_lossy());
+        p = p.join("army_setups");
         if p.exists() {
-            return Ok(PathBuf::new());
+            return Ok(p);
         } else {
             let err = format!(
                 "get_user_default_army_setups_folder_dirs dne {}",
@@ -282,16 +262,36 @@ fn get_user_default_army_setups_folder_dirs(game: &str) -> Result<PathBuf, Strin
 
 //this code block is failing
 //returns path to folder if exists
-fn get_user_default_army_setups_folder_directories(game: &str) -> Result<PathBuf, String> {
+pub fn get_user_default_army_setups_folder_dirs(game: &str) -> Result<PathBuf, String> {
+    if let Some(mut p) = dirs::home_dir() {
+        p = p.join("AppData\\Roaming\\The Creative Assembly");
+        p = p.join(game);
+        p = p.join("army_setups");
+        if p.exists() {
+            return Ok(p);
+        } else {
+            let err = format!(
+                "get_user_default_army_setups_folder_dirs dne {}",
+                p.to_string_lossy()
+            );
+            return Err(err);
+        }
+    }
+    let err = format!("dirs::home_dir() None",);
+    Err(err)
+}
+
+//this code block is failing
+//returns path to folder if exists
+fn _get_user_default_army_setups_folder_directories(game: &str) -> Result<PathBuf, String> {
     if let Some(base_dirs) = BaseDirs::new() {
         let mut p = base_dirs.data_dir().to_path_buf();
         p = p.join("The Creative Assembly");
         p = p.join(game);
-
-        println!("{}", p.to_string_lossy());
+        p = p.join("army_setups");
 
         if p.exists() {
-            return Ok(PathBuf::new());
+            return Ok(p);
         } else {
             let err = format!(
                 " get_user_default_army_setups_folder_directories dne {}",

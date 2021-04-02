@@ -3,11 +3,11 @@ use eframe::{egui, epi};
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[cfg_attr(feature = "persistence", derive(serde::Deserialize, serde::Serialize))]
-pub struct WarbossWaaghitApp {
+pub struct OwaaghApp {
     army_setups_manager: ArmySetupsManager,
 }
 
-impl Default for WarbossWaaghitApp {
+impl Default for OwaaghApp {
     fn default() -> Self {
         Self {
             army_setups_manager: Default::default(),
@@ -16,10 +16,9 @@ impl Default for WarbossWaaghitApp {
 }
 
 //Git note on debugging
-impl epi::App for WarbossWaaghitApp {
+impl epi::App for OwaaghApp {
     fn name(&self) -> &str {
-        //"Generals Chest" //causes the window to be suppressed on original dev machine
-        "Generals Chest" //any other string name is fine
+        "OWAAGH"
     }
 
     /// Called by the framework to load old app state (if any).
@@ -37,7 +36,7 @@ impl epi::App for WarbossWaaghitApp {
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::CtxRef, frame: &mut epi::Frame<'_>) {
-        let WarbossWaaghitApp {
+        let OwaaghApp {
             army_setups_manager,
         } = self;
 

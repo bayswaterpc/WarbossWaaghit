@@ -6,7 +6,7 @@ pub mod army_build;
 pub mod army_setups_folder;
 pub mod army_setups_manager;
 pub mod factions;
-pub use app::WarbossWaaghitApp;
+pub use app::OwaaghApp;
 
 // ----------------------------------------------------------------------------
 // When compiling for web:
@@ -21,6 +21,6 @@ use eframe::wasm_bindgen::{self, prelude::*};
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub fn start(canvas_id: &str) -> Result<(), eframe::wasm_bindgen::JsValue> {
-    let app = WarbossWaaghitApp::default();
+    let app = OwaaghApp::default();
     eframe::start_web(canvas_id, Box::new(app))
 }
