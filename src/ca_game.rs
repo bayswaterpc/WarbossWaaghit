@@ -9,11 +9,10 @@ use std::path::{Path, PathBuf};
         serde::Serialize,
         Debug,
         Clone,
-        PartialEq,
-        IntoEnumIterator
+        IntoEnumIterator,
+        PartialEq
     )
 )]
-
 pub enum CaGame {
     Attila,
     Empire,
@@ -30,12 +29,20 @@ pub enum CaGame {
     Unknown,
 }
 
-pub fn is_game_folder(folder_str: &str, ca_game: CaGame) -> bool {
-    if ca_game == CaGame::Unknown {
+#[derive(Clone, IntoEnumIterator, PartialEq)]
+enum Direction {
+    North,
+    South,
+    West,
+    East,
+}
+
+pub fn is_ca_game_folder(folder_str: &str, ca_game: &CaGame) -> bool {
+    if *ca_game == CaGame::Unknown {
         return false;
     }
     let p = PathBuf::from(folder_str);
-    let game_subdir = get_ca_game_subfolder(ca_game.clone());
+    let game_subdir = get_ca_game_subfolder(&ca_game);
     for d in p.iter() {
         let subdir_str = d.to_string_lossy().to_string();
         if subdir_str == game_subdir {
@@ -47,11 +54,24 @@ pub fn is_game_folder(folder_str: &str, ca_game: CaGame) -> bool {
 }
 
 fn get_subdir_str_ca_game_map() -> HashMap<String, CaGame> {
+    assert_eq!(Direction::VARIANT_COUNT, 4);
+
+    assert!(Direction::into_enum_iter().eq([
+        Direction::North,
+        Direction::South,
+        Direction::West,
+        Direction::East
+    ]
+    .iter()
+    .cloned()));
+
+    assert_eq!(CaGame::VARIANT_COUNT, 12);
+
     let mut m = HashMap::new();
-    // for e in CaGame::into_enum_iterator() {
-    //     let subdir_str = get_ca_game_subfolder(e);
-    //     m.insert(subdir_str, e)
-    // }
+    for e in CaGame::into_enum_iter() {
+        let subdir_str = get_ca_game_subfolder(&e);
+        m.insert(subdir_str, e);
+    }
     m
 }
 
@@ -59,7 +79,7 @@ pub fn get_ca_game(folder_str: &str) -> CaGame {
     let subdir_str_ca_game_map = get_subdir_str_ca_game_map();
     let p = PathBuf::from(folder_str);
     let ca_game = CaGame::Unknown;
-    let game_subdir = get_ca_game_subfolder(ca_game);
+    let game_subdir = get_ca_game_subfolder(&ca_game);
     for d in p.iter() {
         if subdir_str_ca_game_map.contains_key(game_subdir.as_str()) {
             return subdir_str_ca_game_map
@@ -96,7 +116,7 @@ fn get_game_default_army_setups_dir(
     Err(err)
 }
 
-pub fn get_ca_game_subfolder(ca_game: CaGame) -> String {
+pub fn get_ca_game_subfolder(ca_game: &CaGame) -> String {
     let game_subdir = match ca_game {
         CaGame::Attila => "don't know",
         CaGame::Empire => "Empire",
@@ -129,7 +149,7 @@ pub fn get_ca_game_folder(ca_game: CaGame) -> Result<PathBuf, String> {
         _ => "army_setups",
     };
 
-    let game_subdir = get_ca_game_subfolder(ca_game.clone());
+    let game_subdir = get_ca_game_subfolder(&ca_game);
 
     get_game_default_army_setups_dir(game_subdir.as_str(), army_setups_subdir)
 }
