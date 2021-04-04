@@ -1,13 +1,16 @@
 use crate::army_build::ArmyBuild;
 use crate::army_setups_folder::{
-    get_user_default_army_setups_folder_dirs, load_army_builds, validate_load_folder,
-    ArmySetupsFolder,
+    get_owaagh_merge_conflict_dir, load_army_builds, validate_load_folder, ArmySetupsFolder,
 };
+use crate::ca_game::{get_ca_game_folder, CaGame};
 use crate::factions::{faction_dropdown_button, Wh2Factions};
 use eframe::egui;
 use eframe::egui::{Align, Color32, ScrollArea, Ui};
+use std::collections::HashSet;
 use std::ffi::OsString;
+use std::iter::FromIterator;
 use std::path::PathBuf;
+use wfd::{DialogParams, FOS_PICKFOLDERS};
 
 #[cfg_attr(
     feature = "persistence",
@@ -15,8 +18,9 @@ use std::path::PathBuf;
 )]
 pub struct ArmySetupsManager {
     load_folder: ArmySetupsFolder,
-    dummy: i8,
-    pub(crate) army_builds: Vec<ArmyBuild>,
+    pub(crate) army_builds: HashSet<ArmyBuild>,
+    has_merge_conflicts: bool,
+
     display_builds: Vec<ArmyBuild>,
     search_string: String,
     search_faction: Wh2Factions,
@@ -35,26 +39,30 @@ impl Default for ArmySetupsManager {
     fn default() -> Self {
         println!("default manager");
         let load_folder = ArmySetupsFolder::default();
-
+        println!("load asf {:?}", load_folder);
         let army_builds = if load_folder.is_folder() {
-            load_army_builds(load_folder.folder_string.as_str())
+            HashSet::from_iter(
+                load_army_builds(load_folder.folder_string.as_str())
+                    .iter()
+                    .cloned(),
+            )
         } else {
-            vec![]
+            HashSet::new()
         };
 
-        let default_insert = get_user_default_army_setups_folder_dirs("Warhammer2")
+        let default_insert = get_ca_game_folder(CaGame::Warhammer2)
             .unwrap_or(
                 PathBuf::from("C:\\Users\\DaBiggestBoss\\AppData\\Roaming\\The Creative Assembly\\Warhammer2\\army_setups")
             );
-
-        let insert_folder = ArmySetupsFolder {
-            folder_string: default_insert.to_string_lossy().to_string(),
-        };
+        let insert_folder =
+            ArmySetupsFolder::new(default_insert.to_string_lossy().to_string().as_str());
+        println!("insert asf {:?}", insert_folder);
 
         Self {
             load_folder,
-            dummy: 0,
             army_builds,
+            has_merge_conflicts: false,
+
             display_builds: vec![],
             search_string: "".to_owned(),
             search_faction: Wh2Factions::ALL,
@@ -65,7 +73,7 @@ impl Default for ArmySetupsManager {
             tack_item_align: Align::Center,
             offset: 0.0,
 
-            insert_name: "AAAAAGGGHHWWWAAAAAAA".to_owned(),
+            insert_name: "AAAAAAGHOWAAAAAAA".to_owned(),
             insert_folder,
         }
     }
@@ -76,36 +84,76 @@ impl ArmySetupsManager {
         match self.insert_name.clone().chars().nth(0) {
             Some(c) => {
                 if c == '.' {
-                    return Err("Can't start a name with special characters".to_string());
+                    return Err(String::from("Can't start a name with special characters"));
                 }
             }
             None => {
-                return Err("Oy ya got to write something here".to_string());
+                return Err(String::from("Oy ya got to write something here"));
             }
         }
 
         match OsString::from(self.insert_name.as_str()).to_str() {
             Some(str) => Ok(str.to_string()),
-            None => Err("Can't have no funny characters".to_string()),
+            None => Err(String::from("Can't have no funny characters")),
         }
     }
 
-    pub fn load_folder(&mut self) -> Result<(), String> {
-        match validate_load_folder(&self.insert_folder.folder_string) {
+    pub fn load_folder_to_owaagh_appdata(&mut self) -> Result<String, String> {
+        match validate_load_folder(&self.load_folder.folder_string) {
+            //todo flush merge pending folder
             Ok(()) => {
+                let mut added_or_merged_notification = String::new();
                 let armies = load_army_builds(self.insert_folder.folder_string.as_str());
-                self.army_builds = armies;
+                if self.load_folder.is_appdata_folder() {
+                    self.army_builds = HashSet::from_iter(armies.iter().cloned());
+                    let mut n_before = self.army_builds.len();
+                    added_or_merged_notification =
+                        format!("{} Builds In Folder", self.army_builds.len());
+                    //self.army_builds = armies;
+                    return Ok(added_or_merged_notification);
+                } else {
+                    let mut merge_conflict_folder = PathBuf::new();
+                    match get_owaagh_merge_conflict_dir() {
+                        Ok(p) => merge_conflict_folder = p,
+                        Err(e) => return Err(e),
+                    };
+
+                    let mut n_before = self.army_builds.len();
+                    let n_in_folder = armies.len();
+                    for a in armies {
+                        if !self.army_builds.contains(&a) {
+                            self.army_builds.insert(a);
+                        } else {
+                            //todo write to merge folder and popup
+                        }
+                    }
+                    let n_added = self.army_builds.len() - n_before;
+                    if n_added == 0 {
+                        self.has_merge_conflicts = false;
+                    } else if 0 < n_added && n_added != n_before {
+                        added_or_merged_notification = format!(
+                            "{} Builds Added, {} Require Merge Handling",
+                            n_added,
+                            n_in_folder - n_added
+                        );
+                        self.has_merge_conflicts = true;
+                    }
+
+                    //self.army_builds = armies;
+                    return Ok(added_or_merged_notification);
+                }
+
+                Ok(added_or_merged_notification)
             }
             Err(e) => return Err(e),
         }
-        Ok(())
     }
 
     fn update_display_builds(&mut self) {
         let mut display_builds: Vec<ArmyBuild> = vec![];
         //check faction
         if self.search_faction == Wh2Factions::ALL {
-            display_builds = self.army_builds.clone();
+            display_builds = Vec::from_iter(self.army_builds.iter().cloned());
         } else {
             for build in self.army_builds.iter() {
                 if build.faction == self.search_faction {
@@ -134,6 +182,11 @@ impl ArmySetupsManager {
     }
 
     pub(crate) fn army_selector_scrolling_ui(&mut self, ui: &mut Ui, ctx: &egui::CtxRef) {
+        if self.army_builds.is_empty() {
+            ui.label("You got to load some armies first");
+            return;
+        }
+
         ui.horizontal(|ui| {
             if ui.button("Search").clicked() {
                 self.update_display_builds();
@@ -235,7 +288,6 @@ impl ArmySetupsManager {
             return Err("Da army file went missing!!!!".to_string());
         }
 
-        //Do Copy
         let insert_file =
             self.insert_folder.folder_string.clone() + "/" + insert_name.as_str() + ".army_setup";
         match std::fs::copy(selected_file, insert_file.as_str()) {
@@ -286,40 +338,70 @@ impl ArmySetupsManager {
 
     pub fn selector_central_panel_ui(&mut self, ui: &mut Ui, ctx: &egui::CtxRef) {
         egui::CollapsingHeader::new("Load Army Setups")
-            .default_open(self.insert_folder.is_load_folder())
+            .default_open(self.load_folder.is_load_folder())
             .show(ui, |ui| {
                 ui.horizontal(|ui| {
                     if ui.button("Load Folder").clicked() {
-                        match self.load_folder(){
+                        match self.load_folder_to_owaagh_appdata() {
                             Ok(_) => {}
-                            Err(e) => {println!("{}", e)}
+                            Err(e) => {
+                                println!("btn {}", e);
+                                self.load_folder.set_load_folder_error();
+                            }
                         }
                     }
-                    if ui.text_edit_singleline(&mut self.load_folder.folder_string).lost_kb_focus() && ctx.input().key_pressed(egui::Key::Enter) {
-                        match self.load_folder(){
+                    if ui
+                        .text_edit_singleline(&mut self.load_folder.folder_string)
+                        .lost_kb_focus()
+                        && ctx.input().key_pressed(egui::Key::Enter)
+                    {
+                        match self.load_folder_to_owaagh_appdata() {
                             Ok(_) => {}
-                            Err(e) => {println!("{}", e)}
+                            Err(e) => {
+                                println!("enter {}", e);
+                                self.load_folder.set_load_folder_error();
+                            }
+                        }
+                    }
+                    if ui.button("...").clicked() {
+                        println!("aa {}", self.load_folder.folder_string.as_str());
+
+                        let params = DialogParams {
+                            default_folder: self.load_folder.folder_string.as_str(),
+                            options: FOS_PICKFOLDERS,
+                            ..Default::default()
+                        };
+
+                        match wfd::open_dialog(params) {
+                            Ok(res) => {
+                                println!("{:?}", res.selected_file_path);
+                                self.load_folder.folder_string =
+                                    res.selected_file_path.to_string_lossy().to_string();
+                                self.load_folder.set_load_folder_error();
+                            }
+                            Err(e) => {
+                                println!("load folder dialog e {:?}", e);
+                            }
                         }
                     }
                 });
 
-                egui::CollapsingHeader::new("Hint")
-                    .default_open(false)
-                    .show(ui, |ui| {
-                        ui.label("This can be any folder with a \'.army_setup\' file");
-                        ui.label("The default army setup save folder can be found in your TWW2 Roaming AppData folder ex:");
-                        ui.label("C:\\Users\\DaBiggestBoss\\AppData\\Roaming\\The Creative Assembly\\Warhammer2\\army_setups");
-                    });
+                if !self.load_folder.folder_error.is_empty() {
+                    ui.label(self.load_folder.folder_error.clone());
+
+                    egui::CollapsingHeader::new("Hint")
+                        .default_open(false)
+                        .show(ui, |ui| {
+                            ui.label("This can be any folder with a \'.army_setup\' file ex:");
+                            ui.label("C:\\Users\\DaBiggestBoss\\Downloads\\ArmySetups");
+                        });
+                }
             });
 
         egui::CollapsingHeader::new("Select Army Setup")
             .default_open(false)
             .show(ui, |ui| {
-                if self.army_builds.is_empty() {
-                    ui.label("You got to load some armies first");
-                } else {
-                    self.army_selector_scrolling_ui(ui, ctx);
-                }
+                self.army_selector_scrolling_ui(ui, ctx);
             });
 
         egui::CollapsingHeader::new("Insert Army Setup")
@@ -327,20 +409,50 @@ impl ArmySetupsManager {
             .show(ui, |ui| {
                 //
                 ui.horizontal(|ui| {
-                    if ui.button("Insert Folder").clicked() {}
+                    if ui.button("Insert Folder").clicked() {
+                        self.insert_folder.set_insert_folder_error();
+                    }
                     if ui
                         .text_edit_singleline(&mut self.insert_folder.folder_string)
                         .lost_kb_focus()
                         && ctx.input().key_pressed(egui::Key::Enter)
                     {
-                        match self.load_folder() {
-                            Ok(_) => {}
+                        self.insert_folder.set_insert_folder_error();
+                    }
+
+                    if ui.button("...").clicked() {
+                        println!("aa {}", self.insert_folder.folder_string.as_str());
+
+                        let params = DialogParams {
+                            default_folder: self.insert_folder.folder_string.as_str(),
+                            options: FOS_PICKFOLDERS,
+                            ..Default::default()
+                        };
+
+                        match wfd::open_dialog(params) {
+                            Ok(res) => {
+                                println!("{:?}", res.selected_file_path);
+                                self.insert_folder.folder_string =
+                                    res.selected_file_path.to_string_lossy().to_string();
+                                self.insert_folder.set_insert_folder_error();
+                            }
                             Err(e) => {
-                                println!("{}", e)
+                                println!("load folder dialog e {:?}", e);
                             }
                         }
                     }
                 });
+
+                if !self.insert_folder.folder_error.is_empty() {
+                    ui.label(self.insert_folder.folder_error.clone());
+
+                    egui::CollapsingHeader::new("Hint")
+                        .default_open(false)
+                        .show(ui, |ui| {
+                            ui.label("This must match the default army setup save folder for your game ex:");
+                            ui.label("C:\\Users\\DaBiggestBoss\\Downloads\\Roaming\\The Creative Assembly\\Warhammer2\\army_setups");
+                        });
+                }
 
                 if self.insert_folder.is_insert_folder() {
                     self.insert_army_ui(ui, ctx);

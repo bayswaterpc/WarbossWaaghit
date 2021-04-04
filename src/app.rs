@@ -44,6 +44,7 @@ impl epi::App for OwaaghApp {
             ui.heading("Warboss Waaghit");
 
             ui.add(egui::Button::new("Army Setups"));
+            ui.add(egui::Button::new("Tier Lists"));
             // ui.add(egui::Button::new("Tier Lists"));
             // ui.add(egui::Button::new("Personal Stats"));
             // ui.add(egui::Button::new("Resources"));

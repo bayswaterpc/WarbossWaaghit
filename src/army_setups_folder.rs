@@ -1,8 +1,10 @@
 use crate::army_build::ArmyBuild;
+use crate::ca_game::{get_ca_game, get_ca_game_folder, CaGame};
 use crate::factions::{parse_faction, parse_vs_faction};
 use directories::BaseDirs;
 use dirs;
 use std::ffi::OsStr;
+use std::fmt::Debug;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -10,14 +12,39 @@ use std::path::{Path, PathBuf};
     feature = "persistence",
     derive(serde::Deserialize, serde::Serialize, Clone)
 )]
+#[derive(Debug)]
 pub struct ArmySetupsFolder {
     pub folder_string: String,
+    pub folder_error: String,
+    pub ca_game: CaGame,
 }
 
 impl ArmySetupsFolder {
+    pub fn new(folder: &str) -> Self {
+        let folder_string = folder.to_string();
+        let folder_error = match validate_load_folder(folder_string.as_str()) {
+            Ok(_) => String::new(),
+            Err(e) => e,
+        };
+        let ca_game = get_ca_game(folder_string.as_str());
+        Self {
+            folder_string,
+            folder_error,
+            ca_game,
+        }
+    }
+
     pub fn is_folder(&self) -> bool {
         let path = std::path::Path::new(self.folder_string.as_str());
         return path.exists() && path.is_dir();
+    }
+
+    pub fn is_appdata_folder(&self) -> bool {
+        validate_insert_folder(
+            self.folder_string.as_str(),
+            &["AppData\\Roaming\\OWAAGH", "army_setups"],
+        )
+        .is_ok()
     }
 
     pub fn is_load_folder(&self) -> bool {
@@ -25,18 +52,40 @@ impl ArmySetupsFolder {
     }
 
     pub fn is_insert_folder(&self) -> bool {
-        let valid_components = ["The Creative Assembly", "army_setups"];
-        validate_insert_folder(self.folder_string.as_str(), &valid_components).is_ok()
+        validate_insert_folder(
+            self.folder_string.as_str(),
+            &["AppData\\Roaming\\The Creative Assembly", "army_setups"],
+        )
+        .is_ok()
+    }
+
+    pub fn set_load_folder_error(&mut self) {
+        self.folder_error = match validate_load_folder(self.folder_string.as_str()) {
+            Ok(_) => String::new(),
+            Err(e) => e,
+        };
+        println!("set_folder_error {}", self.folder_error);
+    }
+
+    pub fn set_insert_folder_error(&mut self) {
+        self.folder_error = match validate_insert_folder(
+            self.folder_string.as_str(),
+            &["AppData\\Roaming\\The Creative Assembly", "army_setups"],
+        ) {
+            Ok(_) => String::new(),
+            Err(e) => e,
+        };
+        println!("set_folder_error {}", self.folder_error);
     }
 }
 
 impl Default for ArmySetupsFolder {
     fn default() -> Self {
-        println!("default army setups");
-
-        Self {
-            folder_string: "WarbossWaaghitSetups\\Warhammer2".to_string(),
-        }
+        let folder_string = match get_owaagh_army_setups_dir("Warhammer2") {
+            Ok(p) => p.to_string_lossy().to_string(),
+            Err(_e) => String::new(),
+        };
+        ArmySetupsFolder::new(folder_string.as_str())
     }
 }
 
@@ -83,6 +132,7 @@ pub fn load_army_builds(folder_path: &str) -> Vec<ArmyBuild> {
                     continue;
                 } else {
                     if is_army_setup_file(&entry) {
+                        let file_string = entry.path().to_string_lossy().to_string();
                         let file_stem = entry
                             .path()
                             .file_stem()
@@ -96,6 +146,8 @@ pub fn load_army_builds(folder_path: &str) -> Vec<ArmyBuild> {
                             file_stem: file_stem.clone(),
                             faction: parse_faction(&file_stem),
                             vs_faction: parse_vs_faction(&file_stem),
+                            original_file: entry.path(),
+                            ca_game: get_ca_game(file_string.as_str()),
                         });
                         //println!("{:?} {:?} {:?}", builds.last().unwrap().file_name, builds.last().unwrap().faction, builds.last().unwrap().vs_faction);
                     }
@@ -165,141 +217,55 @@ pub fn validate_insert_folder(
     Ok(())
 }
 
-fn _get_path_subdirs(dir: &Path) -> Vec<String> {
-    let mut subdirs = vec![];
-    for component in dir.components() {
-        let c = component.as_os_str().to_string_lossy().to_string();
-        subdirs.push(c);
-    }
-    subdirs
-}
-
-//TODO figure out how to do this with globwalk
-// searches for folder in a directory with handling for * any wildcard in path component
-fn _search_for_folder(
-    dir: &Path,
-    folder_depth: usize,
-    path_components: &Vec<String>,
-) -> Result<String, (usize, String)> {
-    if folder_depth >= path_components.len() {
-        return Err((folder_depth, "Gone too far".to_string()));
-    } else if folder_depth == path_components.len() - 1 {
-        let f = dir
-            .file_name()
-            .unwrap_or(OsStr::new(""))
-            .to_string_lossy()
-            .to_string();
-        if f == path_components[folder_depth] || path_components[folder_depth] == "*" {
-            return Ok(dir.to_string_lossy().to_string());
-        }
-    }
-
-    let mut max_err_depth = 0 as usize;
-    let mut err_message = String::new();
-
-    if dir.is_dir() {
-        for entry in fs::read_dir(dir).expect("read_dir fail") {
-            let entry = entry.expect("DirEntry");
-            let path = entry.path();
-            if path.is_dir() {
-                match path.file_name() {
-                    Some(dir_name) => {
-                        let dir_string = dir_name.to_string_lossy().to_string();
-                        //If match or wildcard Handle wildcard
-                        if dir_string == path_components[folder_depth]
-                            || path_components[folder_depth] == "*"
-                        {
-                            let res = _search_for_folder(
-                                path.as_path(),
-                                folder_depth + 1,
-                                path_components,
-                            );
-                            match res {
-                                Ok(file) => {
-                                    return Ok(file);
-                                }
-                                Err((d, s)) => {
-                                    if max_err_depth < d {
-                                        max_err_depth = d;
-                                        err_message = s;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    None => {
-                        return Err((folder_depth, "none path.file_name()".to_string()));
-                    }
-                }
-            } else {
-                continue;
-            }
-        }
-    }
-    Err((max_err_depth, err_message))
-}
-
 //this code block is failing
 //returns path to folder if exists
-pub fn get_user_default_load_army_setups_folder_dirs(game: &str) -> Result<PathBuf, String> {
+pub fn get_owaagh_army_setups_dir(game: &str) -> Result<PathBuf, String> {
     if let Some(mut p) = dirs::home_dir() {
         p = p.join("AppData\\Roaming\\OWAAGH");
         p = p.join(game);
         p = p.join("army_setups");
         if p.exists() {
+            println!(
+                "get_owaagh_army_setups_dir p{}",
+                p.to_string_lossy().to_string()
+            );
             return Ok(p);
         } else {
             let err = format!(
                 "get_user_default_army_setups_folder_dirs dne {}",
                 p.to_string_lossy()
             );
+            println!("get_owaagh_army_setups_dir err1 {}", err);
+
             return Err(err);
         }
     }
     let err = format!("dirs::home_dir() None",);
+    println!("get_owaagh_army_setups_dir err2 {}", err);
+
     Err(err)
 }
 
-//this code block is failing
-//returns path to folder if exists
-pub fn get_user_default_army_setups_folder_dirs(game: &str) -> Result<PathBuf, String> {
+pub fn get_owaagh_merge_conflict_dir() -> Result<PathBuf, String> {
     if let Some(mut p) = dirs::home_dir() {
-        p = p.join("AppData\\Roaming\\The Creative Assembly");
-        p = p.join(game);
+        p = p.join("AppData\\Roaming\\OWAAGH");
+        p = p.join("merge_conflicts");
         p = p.join("army_setups");
         if p.exists() {
+            println!(
+                "get_owaagh_army_setups_dir p{}",
+                p.to_string_lossy().to_string()
+            );
             return Ok(p);
         } else {
-            let err = format!(
-                "get_user_default_army_setups_folder_dirs dne {}",
-                p.to_string_lossy()
-            );
-            return Err(err);
+            return match fs::create_dir(p.clone()) {
+                Ok(_) => Ok(p),
+                Err(e) => Err(e.to_string()),
+            };
         }
     }
     let err = format!("dirs::home_dir() None",);
-    Err(err)
-}
+    println!("get_owaagh_army_setups_dir err2 {}", err);
 
-//this code block is failing
-//returns path to folder if exists
-fn _get_user_default_army_setups_folder_directories(game: &str) -> Result<PathBuf, String> {
-    if let Some(base_dirs) = BaseDirs::new() {
-        let mut p = base_dirs.data_dir().to_path_buf();
-        p = p.join("The Creative Assembly");
-        p = p.join(game);
-        p = p.join("army_setups");
-
-        if p.exists() {
-            return Ok(p);
-        } else {
-            let err = format!(
-                " get_user_default_army_setups_folder_directories dne {}",
-                p.to_string_lossy()
-            );
-            return Err(err);
-        }
-    }
-    let err = format!("BaseDirs::new() None",);
     Err(err)
 }

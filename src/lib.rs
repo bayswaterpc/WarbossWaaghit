@@ -5,7 +5,9 @@ mod app;
 pub mod army_build;
 pub mod army_setups_folder;
 pub mod army_setups_manager;
+mod ca_game;
 pub mod factions;
+
 pub use app::OwaaghApp;
 
 // ----------------------------------------------------------------------------
