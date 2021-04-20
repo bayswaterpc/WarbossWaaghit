@@ -1,6 +1,6 @@
 use enum_iterator::IntoEnumIterator;
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 #[cfg_attr(
     feature = "persistence",
@@ -10,7 +10,9 @@ use std::path::{Path, PathBuf};
         Debug,
         Clone,
         IntoEnumIterator,
-        PartialEq
+        PartialEq,
+        Eq,
+        Hash
     )
 )]
 pub enum CaGame {
@@ -26,21 +28,9 @@ pub enum CaGame {
     ThronesOfBritannia,
     Warhammer,
     Warhammer2,
-    Unknown,
-}
-
-#[derive(Clone, IntoEnumIterator, PartialEq)]
-enum Direction {
-    North,
-    South,
-    West,
-    East,
 }
 
 pub fn is_ca_game_folder(folder_str: &str, ca_game: &CaGame) -> bool {
-    if *ca_game == CaGame::Unknown {
-        return false;
-    }
     let p = PathBuf::from(folder_str);
     let game_subdir = get_ca_game_subfolder(&ca_game);
     for d in p.iter() {
@@ -49,24 +39,10 @@ pub fn is_ca_game_folder(folder_str: &str, ca_game: &CaGame) -> bool {
             return true;
         }
     }
-
     return false;
 }
 
 fn get_subdir_str_ca_game_map() -> HashMap<String, CaGame> {
-    assert_eq!(Direction::VARIANT_COUNT, 4);
-
-    assert!(Direction::into_enum_iter().eq([
-        Direction::North,
-        Direction::South,
-        Direction::West,
-        Direction::East
-    ]
-    .iter()
-    .cloned()));
-
-    assert_eq!(CaGame::VARIANT_COUNT, 12);
-
     let mut m = HashMap::new();
     for e in CaGame::into_enum_iter() {
         let subdir_str = get_ca_game_subfolder(&e);
@@ -78,9 +54,9 @@ fn get_subdir_str_ca_game_map() -> HashMap<String, CaGame> {
 pub fn get_ca_game(folder_str: &str) -> CaGame {
     let subdir_str_ca_game_map = get_subdir_str_ca_game_map();
     let p = PathBuf::from(folder_str);
-    let ca_game = CaGame::Unknown;
+    let ca_game = CaGame::Warhammer2;
     let game_subdir = get_ca_game_subfolder(&ca_game);
-    for d in p.iter() {
+    for _d in p.iter() {
         if subdir_str_ca_game_map.contains_key(game_subdir.as_str()) {
             return subdir_str_ca_game_map
                 .get(game_subdir.as_str())
@@ -89,7 +65,7 @@ pub fn get_ca_game(folder_str: &str) -> CaGame {
         }
     }
 
-    CaGame::Unknown
+    CaGame::Warhammer2
 }
 
 //this code block is failing
@@ -118,38 +94,36 @@ fn get_game_default_army_setups_dir(
 
 pub fn get_ca_game_subfolder(ca_game: &CaGame) -> String {
     let game_subdir = match ca_game {
-        CaGame::Attila => "don't know",
+        CaGame::Attila => "todo",
         CaGame::Empire => "Empire",
-        CaGame::Medieval2 => "don't know",
+        CaGame::Medieval2 => "todo",
         CaGame::Napoleon => "Napolean",
-        CaGame::Rome => "don't know",
+        CaGame::Rome => "todo",
         CaGame::Rome2 => "Rome2",
-        CaGame::RomeRemastered => "",
+        CaGame::RomeRemastered => "todo",
         CaGame::Shogun2 => "Shogun2",
         CaGame::ThreeKingdoms => "ThreeKingdoms",
-        CaGame::ThronesOfBritannia => "don't know",
+        CaGame::ThronesOfBritannia => "todo",
         CaGame::Warhammer => "Warhammer",
         CaGame::Warhammer2 => "Warhammer2",
-        CaGame::Unknown => "Unknown",
     };
     String::from(game_subdir)
 }
 
 pub fn get_ca_game_folder(ca_game: CaGame) -> Result<PathBuf, String> {
-    if ca_game == CaGame::Medieval2 {
-        return Err(String::from("Medieval2 not yet supported"));
-    }
-    if ca_game == CaGame::Unknown {
-        return Err(String::from("Can't folder get for unknown game"));
-    }
-
     let army_setups_subdir = match ca_game.clone() {
         CaGame::Empire => "battle_preferences",
-        CaGame::Medieval2 => "todo_support", //this goes into steamapps and is harder to find ex: D:\Personal\SteamLibrary\steamapps\common
         _ => "army_setups",
     };
 
     let game_subdir = get_ca_game_subfolder(&ca_game);
 
     get_game_default_army_setups_dir(game_subdir.as_str(), army_setups_subdir)
+}
+
+pub fn get_ca_game_army_setup_ext(ca_game: CaGame) -> String {
+    match ca_game {
+        CaGame::Empire => String::from("battle_preferences"),
+        _ => String::from("army_setup"),
+    }
 }

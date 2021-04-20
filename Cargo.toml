@@ -26,6 +26,7 @@ dirs = "3.0.1"
 directories = "3.0.1"
 wfd = "0.1.7"
 enum-iterator = "0.6.0"
+chrono = "0.4"
 
 
 [features]

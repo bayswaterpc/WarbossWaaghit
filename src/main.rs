@@ -6,5 +6,6 @@
 #[cfg(not(target_arch = "wasm32"))]
 fn main() {
     let app = owaagh_lib::OwaaghApp::default();
+    //app.army_setups_manager;
     eframe::run_native(Box::new(app));
 }

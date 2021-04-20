@@ -1,15 +1,19 @@
 use crate::army_build::ArmyBuild;
 use crate::army_setups_folder::{
-    get_owaagh_merge_conflict_dir, load_army_builds, validate_load_folder, ArmySetupsFolder,
+    get_owaagh_army_setups_dir, load_army_builds, validate_load_folder, ArmySetupsFolder,
 };
-use crate::ca_game::{get_ca_game_folder, CaGame};
+use crate::ca_game::{get_ca_game_army_setup_ext, get_ca_game_folder, CaGame};
 use crate::factions::{faction_dropdown_button, Wh2Factions};
+use chrono::offset::Utc;
+use chrono::DateTime;
 use eframe::egui;
 use eframe::egui::{Align, Color32, ScrollArea, Ui};
-use std::collections::HashSet;
+use enum_iterator::IntoEnumIterator;
+use std::collections::{HashMap, HashSet};
 use std::ffi::OsString;
 use std::iter::FromIterator;
 use std::path::PathBuf;
+use std::time::SystemTime;
 use wfd::{DialogParams, FOS_PICKFOLDERS};
 
 #[cfg_attr(
@@ -17,16 +21,18 @@ use wfd::{DialogParams, FOS_PICKFOLDERS};
     derive(serde::Deserialize, serde::Serialize, Clone)
 )]
 pub struct ArmySetupsManager {
+    available_games: Vec<ArmyBuild>,
+    selected_game: CaGame,
+
     load_folder: ArmySetupsFolder,
-    pub(crate) army_builds: HashSet<ArmyBuild>,
-    has_merge_conflicts: bool,
+    pub(crate) army_builds: HashMap<CaGame, HashSet<ArmyBuild>>,
 
     display_builds: Vec<ArmyBuild>,
     search_string: String,
     search_faction: Wh2Factions,
     search_vs_faction: Wh2Factions,
     pub(crate) selected_army_build: ArmyBuild,
-    max_display_builds: usize,
+
     track_item: usize,
     tack_item_align: Align,
     offset: f32,
@@ -38,37 +44,47 @@ pub struct ArmySetupsManager {
 impl Default for ArmySetupsManager {
     fn default() -> Self {
         println!("default manager");
-        let load_folder = ArmySetupsFolder::default();
+        let default_load_path = get_ca_game_folder(CaGame::Warhammer2)
+            .unwrap_or(
+                PathBuf::from("C:\\Users\\DaBiggestBoss\\AppData\\Roaming\\The Creative Assembly\\Warhammer2\\army_setups")
+            );
+        let load_folder =
+            ArmySetupsFolder::new(default_load_path.to_string_lossy().to_string().as_str());
         println!("load asf {:?}", load_folder);
-        let army_builds = if load_folder.is_folder() {
-            HashSet::from_iter(
-                load_army_builds(load_folder.folder_string.as_str())
-                    .iter()
-                    .cloned(),
-            )
-        } else {
-            HashSet::new()
-        };
 
-        let default_insert = get_ca_game_folder(CaGame::Warhammer2)
+        let default_insert_path = get_ca_game_folder(CaGame::Warhammer2)
             .unwrap_or(
                 PathBuf::from("C:\\Users\\DaBiggestBoss\\AppData\\Roaming\\The Creative Assembly\\Warhammer2\\army_setups")
             );
         let insert_folder =
-            ArmySetupsFolder::new(default_insert.to_string_lossy().to_string().as_str());
+            ArmySetupsFolder::new(default_insert_path.to_string_lossy().to_string().as_str());
         println!("insert asf {:?}", insert_folder);
 
+        let army_builds = ArmySetupsManager::get_ca_army_builds();
+        println!(
+            "ArmySetupsManager.default army_builds.len() {}",
+            army_builds.len()
+        );
+        let selected_game = CaGame::Warhammer2;
+
+        let display_builds = match army_builds.get(&selected_game) {
+            Some(army_set) => army_set.iter().cloned().collect(),
+            None => vec![],
+        };
+
         Self {
+            available_games: vec![],
+            selected_game,
+
             load_folder,
             army_builds,
-            has_merge_conflicts: false,
 
-            display_builds: vec![],
+            display_builds,
             search_string: "".to_owned(),
             search_faction: Wh2Factions::ALL,
             search_vs_faction: Wh2Factions::ALL,
             selected_army_build: ArmyBuild::default(),
-            max_display_builds: 50,
+
             track_item: usize::MAX,
             tack_item_align: Align::Center,
             offset: 0.0,
@@ -80,6 +96,32 @@ impl Default for ArmySetupsManager {
 }
 
 impl ArmySetupsManager {
+    fn get_ca_army_builds() -> HashMap<CaGame, HashSet<ArmyBuild>> {
+        let mut army_builds: HashMap<CaGame, HashSet<ArmyBuild>> = HashMap::new();
+        for e in CaGame::into_enum_iter() {
+            let mut folder = String::new();
+            match get_ca_game_folder(e.clone()) {
+                Ok(p) => folder = p.to_string_lossy().to_string(),
+                Err(_) => continue,
+            }
+            let game_army_builds = load_army_builds(folder.as_str());
+            if game_army_builds.len() > 0 {
+                army_builds.insert(e, HashSet::from_iter(game_army_builds.iter().cloned()));
+            }
+        }
+        army_builds
+    }
+
+    fn get_game_army_builds(&mut self, ca_game: CaGame) -> HashSet<ArmyBuild> {
+        match self.army_builds.get(&ca_game) {
+            Some(h) => h.clone(),
+            None => {
+                self.army_builds.insert(ca_game.clone(), HashSet::new());
+                self.army_builds.get(&ca_game).unwrap().clone()
+            }
+        }
+    }
+
     pub fn valid_insert_name(&self) -> Result<String, String> {
         match self.insert_name.clone().chars().nth(0) {
             Some(c) => {
@@ -99,84 +141,131 @@ impl ArmySetupsManager {
     }
 
     pub fn load_folder_to_owaagh_appdata(&mut self) -> Result<String, String> {
-        match validate_load_folder(&self.load_folder.folder_string) {
-            //todo flush merge pending folder
-            Ok(()) => {
-                let mut added_or_merged_notification = String::new();
-                let armies = load_army_builds(self.insert_folder.folder_string.as_str());
-                if self.load_folder.is_appdata_folder() {
-                    self.army_builds = HashSet::from_iter(armies.iter().cloned());
-                    let mut n_before = self.army_builds.len();
-                    added_or_merged_notification =
-                        format!("{} Builds In Folder", self.army_builds.len());
-                    //self.army_builds = armies;
-                    return Ok(added_or_merged_notification);
-                } else {
-                    let mut merge_conflict_folder = PathBuf::new();
-                    match get_owaagh_merge_conflict_dir() {
-                        Ok(p) => merge_conflict_folder = p,
-                        Err(e) => return Err(e),
-                    };
+        let res = validate_load_folder(&self.load_folder.folder_string);
+        if res.is_err() {
+            return Err(format!(
+                "load_folder_to_owaagh_appdata {}",
+                res.err().unwrap()
+            ));
+        }
+        let res1 = get_owaagh_army_setups_dir(&self.selected_game);
+        if res1.is_err() {
+            return Err(format!(
+                "load_folder_to_owaagh_appdata {}",
+                res1.err().unwrap()
+            ));
+        }
+        let owaagh_appdata_path = res1.unwrap().clone();
 
-                    let mut n_before = self.army_builds.len();
-                    let n_in_folder = armies.len();
+        let mut added_or_merged_notification = String::new();
+
+        //Prepping army builds folder
+        let mut armies = load_army_builds(self.insert_folder.folder_string.as_str());
+        let game_extension = format!(
+            ".{}",
+            get_ca_game_army_setup_ext(self.selected_game.clone())
+        );
+
+        //If loading from CA game folder, have that be dominant file naming system, will always match what you have there.
+        if self.load_folder.is_appdata_folder() {
+            for a in armies.iter_mut() {
+                let mut new_file_path: PathBuf = owaagh_appdata_path.clone();
+                new_file_path.push(a.file_stem.as_str());
+                new_file_path.push(game_extension.as_str());
+
+                match std::fs::copy(a.file.clone(), new_file_path.clone()) {
+                    Ok(_) => a.file = new_file_path,
+                    Err(e) => {
+                        let err = format!("Couldn't copy {} err {}", a.file_stem, e);
+                        return Err(err);
+                    }
+                }
+            }
+
+            let mut n_added = 0;
+            match self.army_builds.get_mut(&self.selected_game) {
+                None => {
+                    let army_set = HashSet::from_iter(armies.iter().cloned());
+                    n_added = army_set.len();
+                    self.army_builds
+                        .insert(self.selected_game.clone(), army_set);
+                }
+                Some(h) => {
+                    let n_before = h.len();
                     for a in armies {
-                        if !self.army_builds.contains(&a) {
-                            self.army_builds.insert(a);
-                        } else {
-                            //todo write to merge folder and popup
+                        h.insert(a);
+                    }
+                    n_added = h.len() - n_before;
+                }
+            }
+            added_or_merged_notification = format!("{} Builds Added", n_added);
+            return Ok(added_or_merged_notification);
+        } else {
+            let game_army_builds = self.get_game_army_builds(self.selected_game.clone());
+            let n_before = game_army_builds.len();
+
+            //Copy & Rename loaded army builds
+            for a in armies.iter_mut() {
+                let mut new_file_path = owaagh_appdata_path.clone();
+
+                //Check unique & rename
+                if game_army_builds.contains(a) {
+                    match std::fs::metadata(a.file.as_path()) {
+                        Ok(m) => {
+                            let t = m.created().unwrap_or(std::time::SystemTime::now());
+                            let datetime: DateTime<Utc> = t.into();
+                            a.file_stem = format!("{} {}", a.file_stem, datetime.format("%Y%m%d"));
+                        }
+                        Err(e) => {
+                            return Err(format!("Getting metadata err {}", e));
                         }
                     }
-                    let n_added = self.army_builds.len() - n_before;
-                    if n_added == 0 {
-                        self.has_merge_conflicts = false;
-                    } else if 0 < n_added && n_added != n_before {
-                        added_or_merged_notification = format!(
-                            "{} Builds Added, {} Require Merge Handling",
-                            n_added,
-                            n_in_folder - n_added
-                        );
-                        self.has_merge_conflicts = true;
-                    }
-
-                    //self.army_builds = armies;
-                    return Ok(added_or_merged_notification);
+                    new_file_path.push(a.file_stem.as_str());
+                    new_file_path.push(game_extension.as_str());
                 }
 
-                Ok(added_or_merged_notification)
+                //copy and add in new army builds
+                match std::fs::copy(a.file.clone(), new_file_path.clone()) {
+                    Ok(_) => a.file = new_file_path,
+                    Err(e) => {
+                        let err = format!("{} for file_stem {}", e, a.file_stem);
+                        return Err(err);
+                    }
+                }
             }
-            Err(e) => return Err(e),
+
+            let n_added = game_army_builds.len() - n_before;
+            added_or_merged_notification = format!("{} Builds Added", n_added,);
+
+            //self.army_builds = armies;
+            return Ok(added_or_merged_notification);
         }
     }
 
     fn update_display_builds(&mut self) {
-        let mut display_builds: Vec<ArmyBuild> = vec![];
-        //check faction
-        if self.search_faction == Wh2Factions::ALL {
-            display_builds = Vec::from_iter(self.army_builds.iter().cloned());
-        } else {
-            for build in self.army_builds.iter() {
-                if build.faction == self.search_faction {
-                    display_builds.push(build.clone());
-                }
-            }
-        }
+        let game_builds = self.get_game_army_builds(self.selected_game.clone());
+        //check factions first
+        let mut display_builds: Vec<ArmyBuild> = game_builds
+            .iter()
+            .filter(|ab| {
+                (self.search_faction == Wh2Factions::ALL || ab.faction == self.search_faction)
+                    && (self.search_vs_faction == Wh2Factions::ALL
+                        || ab.vs_faction == self.search_vs_faction)
+            })
+            .cloned()
+            .collect();
 
-        if self.search_vs_faction != Wh2Factions::ALL {
-            for ii in (0..display_builds.len()).rev() {
-                if display_builds[ii].vs_faction != self.search_vs_faction {
-                    display_builds.remove(ii);
-                }
-            }
-        }
-
+        //now do string manipulation, slower so on fewer
         let lower_case_search = self.search_string.to_ascii_lowercase();
-        for ii in (0..display_builds.len()).rev() {
-            let lower_file = display_builds[ii].file_stem.to_ascii_lowercase();
-            if !lower_file.contains(lower_case_search.as_str()) {
-                display_builds.remove(ii);
-            }
-        }
+        display_builds = display_builds
+            .iter()
+            .filter(|ab| {
+                ab.file_stem
+                    .to_ascii_lowercase()
+                    .contains(lower_case_search.as_str())
+            })
+            .cloned()
+            .collect();
 
         self.display_builds = display_builds;
     }

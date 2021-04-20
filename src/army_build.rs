@@ -39,7 +39,7 @@ impl Default for ArmyBuild {
             faction: Wh2Factions::UNKNOWN,
             vs_faction: Wh2Factions::UNKNOWN,
             original_file: PathBuf::new(),
-            ca_game: CaGame::Unknown,
+            ca_game: CaGame::Warhammer2,
         }
     }
 }

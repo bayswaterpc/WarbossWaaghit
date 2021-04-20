@@ -1,7 +1,6 @@
 use crate::army_build::ArmyBuild;
 use crate::ca_game::{get_ca_game, get_ca_game_folder, CaGame};
 use crate::factions::{parse_faction, parse_vs_faction};
-use directories::BaseDirs;
 use dirs;
 use std::ffi::OsStr;
 use std::fmt::Debug;
@@ -52,9 +51,17 @@ impl ArmySetupsFolder {
     }
 
     pub fn is_insert_folder(&self) -> bool {
+        let res_sub_dir = get_ca_game_folder(self.ca_game.clone());
+        if res_sub_dir.is_err() {
+            return false;
+        }
+        let subdir_str = res_sub_dir.unwrap().to_string_lossy().to_string();
         validate_insert_folder(
             self.folder_string.as_str(),
-            &["AppData\\Roaming\\The Creative Assembly", "army_setups"],
+            &[
+                "AppData\\Roaming\\The Creative Assembly",
+                subdir_str.as_str(),
+            ],
         )
         .is_ok()
     }
@@ -64,7 +71,6 @@ impl ArmySetupsFolder {
             Ok(_) => String::new(),
             Err(e) => e,
         };
-        println!("set_folder_error {}", self.folder_error);
     }
 
     pub fn set_insert_folder_error(&mut self) {
@@ -75,13 +81,12 @@ impl ArmySetupsFolder {
             Ok(_) => String::new(),
             Err(e) => e,
         };
-        println!("set_folder_error {}", self.folder_error);
     }
 }
 
 impl Default for ArmySetupsFolder {
     fn default() -> Self {
-        let folder_string = match get_owaagh_army_setups_dir("Warhammer2") {
+        let folder_string = match get_owaagh_army_setups_dir(&CaGame::Warhammer2) {
             Ok(p) => p.to_string_lossy().to_string(),
             Err(_e) => String::new(),
         };
@@ -219,50 +224,30 @@ pub fn validate_insert_folder(
 
 //this code block is failing
 //returns path to folder if exists
-pub fn get_owaagh_army_setups_dir(game: &str) -> Result<PathBuf, String> {
-    if let Some(mut p) = dirs::home_dir() {
-        p = p.join("AppData\\Roaming\\OWAAGH");
-        p = p.join(game);
-        p = p.join("army_setups");
-        if p.exists() {
-            println!(
-                "get_owaagh_army_setups_dir p{}",
-                p.to_string_lossy().to_string()
-            );
-            return Ok(p);
-        } else {
-            let err = format!(
-                "get_user_default_army_setups_folder_dirs dne {}",
-                p.to_string_lossy()
-            );
-            println!("get_owaagh_army_setups_dir err1 {}", err);
-
-            return Err(err);
+pub fn get_owaagh_army_setups_dir(game: &CaGame) -> Result<PathBuf, String> {
+    let mut game_subdir = Path::new("");
+    match get_ca_game_folder(game.clone()) {
+        Ok(p) => {
+            game_subdir = Path::new(""); //p.as_path().clone();
+        }
+        Err(e) => {
+            return Err(e);
         }
     }
-    let err = format!("dirs::home_dir() None",);
-    println!("get_owaagh_army_setups_dir err2 {}", err);
 
-    Err(err)
-}
-
-pub fn get_owaagh_merge_conflict_dir() -> Result<PathBuf, String> {
     if let Some(mut p) = dirs::home_dir() {
         p = p.join("AppData\\Roaming\\OWAAGH");
-        p = p.join("merge_conflicts");
+        p = p.join(game_subdir);
         p = p.join("army_setups");
-        if p.exists() {
-            println!(
-                "get_owaagh_army_setups_dir p{}",
-                p.to_string_lossy().to_string()
-            );
-            return Ok(p);
-        } else {
-            return match fs::create_dir(p.clone()) {
-                Ok(_) => Ok(p),
-                Err(e) => Err(e.to_string()),
-            };
+        if !p.exists() {
+            match std::fs::create_dir(p.clone()) {
+                Ok(_) => {}
+                Err(e) => {
+                    return Err(format!("{}", e));
+                }
+            }
         }
+        return Ok(p);
     }
     let err = format!("dirs::home_dir() None",);
     println!("get_owaagh_army_setups_dir err2 {}", err);
