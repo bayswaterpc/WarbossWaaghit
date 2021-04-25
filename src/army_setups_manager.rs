@@ -1,8 +1,11 @@
 use crate::army_build::ArmyBuild;
 use crate::army_setups_folder::{
-    get_owaagh_army_setups_dir, load_army_builds, validate_load_folder, ArmySetupsFolder,
+    get_owaagh_army_setups_dir, get_tmp_default_army_setups_dir, load_army_builds,
+    validate_load_folder, ArmySetupsFolder,
 };
-use crate::ca_game::{get_ca_game_army_setup_ext, get_ca_game_folder, CaGame};
+use crate::ca_game::{
+    get_ca_game_army_setup_ext, get_ca_game_army_setups_folder, get_ca_game_title, CaGame,
+};
 use crate::factions::{faction_dropdown_button, Wh2Factions};
 use chrono::offset::Utc;
 use chrono::DateTime;
@@ -21,7 +24,6 @@ use wfd::{DialogParams, FOS_PICKFOLDERS};
     derive(serde::Deserialize, serde::Serialize, Clone)
 )]
 pub struct ArmySetupsManager {
-    available_games: Vec<ArmyBuild>,
     selected_game: CaGame,
 
     load_folder: ArmySetupsFolder,
@@ -29,6 +31,7 @@ pub struct ArmySetupsManager {
 
     display_builds: Vec<ArmyBuild>,
     search_string: String,
+    search_mod: String,
     search_faction: Wh2Factions,
     search_vs_faction: Wh2Factions,
     pub(crate) selected_army_build: ArmyBuild,
@@ -44,7 +47,7 @@ pub struct ArmySetupsManager {
 impl Default for ArmySetupsManager {
     fn default() -> Self {
         println!("default manager");
-        let default_load_path = get_ca_game_folder(CaGame::Warhammer2)
+        let default_load_path = get_ca_game_army_setups_folder(CaGame::Warhammer2)
             .unwrap_or(
                 PathBuf::from("C:\\Users\\DaBiggestBoss\\AppData\\Roaming\\The Creative Assembly\\Warhammer2\\army_setups")
             );
@@ -52,7 +55,7 @@ impl Default for ArmySetupsManager {
             ArmySetupsFolder::new(default_load_path.to_string_lossy().to_string().as_str());
         println!("load asf {:?}", load_folder);
 
-        let default_insert_path = get_ca_game_folder(CaGame::Warhammer2)
+        let default_insert_path = get_ca_game_army_setups_folder(CaGame::Warhammer2)
             .unwrap_or(
                 PathBuf::from("C:\\Users\\DaBiggestBoss\\AppData\\Roaming\\The Creative Assembly\\Warhammer2\\army_setups")
             );
@@ -60,20 +63,24 @@ impl Default for ArmySetupsManager {
             ArmySetupsFolder::new(default_insert_path.to_string_lossy().to_string().as_str());
         println!("insert asf {:?}", insert_folder);
 
-        let army_builds = ArmySetupsManager::get_ca_army_builds();
+        let mut army_builds = ArmySetupsManager::get_ca_army_builds();
         println!(
             "ArmySetupsManager.default army_builds.len() {}",
             army_builds.len()
         );
-        let selected_game = CaGame::Warhammer2;
 
+        if ArmySetupsFolder::get_tmp_defaults_folder().exists() {
+            ArmySetupsManager::append_default_army_builds(&mut army_builds);
+            std::fs::remove_dir_all(ArmySetupsFolder::get_tmp_defaults_folder());
+        }
+
+        let selected_game = CaGame::Warhammer2;
         let display_builds = match army_builds.get(&selected_game) {
             Some(army_set) => army_set.iter().cloned().collect(),
             None => vec![],
         };
 
         Self {
-            available_games: vec![],
             selected_game,
 
             load_folder,
@@ -83,6 +90,7 @@ impl Default for ArmySetupsManager {
             search_string: "".to_owned(),
             search_faction: Wh2Factions::ALL,
             search_vs_faction: Wh2Factions::ALL,
+            search_mod: "".to_owned(),
             selected_army_build: ArmyBuild::default(),
 
             track_item: usize::MAX,
@@ -98,9 +106,28 @@ impl Default for ArmySetupsManager {
 impl ArmySetupsManager {
     fn get_ca_army_builds() -> HashMap<CaGame, HashSet<ArmyBuild>> {
         let mut army_builds: HashMap<CaGame, HashSet<ArmyBuild>> = HashMap::new();
-        for e in CaGame::into_enum_iter() {
+        for ca_game in CaGame::into_enum_iter() {
             let mut folder = String::new();
-            match get_ca_game_folder(e.clone()) {
+            match get_ca_game_army_setups_folder(ca_game.clone()) {
+                Ok(p) => folder = p.to_string_lossy().to_string(),
+                Err(_) => continue,
+            }
+            let game_army_builds = load_army_builds(folder.as_str());
+            if game_army_builds.len() > 0 {
+                army_builds.insert(
+                    ca_game,
+                    HashSet::from_iter(game_army_builds.iter().cloned()),
+                );
+            }
+        }
+        army_builds
+    }
+
+    fn get_tmp_default_builds() -> HashMap<CaGame, HashSet<ArmyBuild>> {
+        let mut army_builds: HashMap<CaGame, HashSet<ArmyBuild>> = HashMap::new();
+        for e in CaGame::into_enum_iter() {
+            let mut folder;
+            match get_tmp_default_army_setups_dir(&e) {
                 Ok(p) => folder = p.to_string_lossy().to_string(),
                 Err(_) => continue,
             }
@@ -110,6 +137,69 @@ impl ArmySetupsManager {
             }
         }
         army_builds
+    }
+
+    fn append_default_army_builds(army_builds: &mut HashMap<CaGame, HashSet<ArmyBuild>>) {
+        let mut default_game_armies = ArmySetupsManager::get_tmp_default_builds();
+
+        for (ca_game, default_armies) in default_game_armies.into_iter() {
+            let mut tmp_default_game_path;
+            match get_tmp_default_army_setups_dir(&ca_game) {
+                Ok(p) => {
+                    tmp_default_game_path = p;
+                }
+                Err(e) => {
+                    println!("append_default_army_builds {}", e);
+                    continue;
+                }
+            }
+            let game_extension = format!(".{}", get_ca_game_army_setup_ext(ca_game.clone()));
+
+            let res1 = get_owaagh_army_setups_dir(&ca_game);
+            if res1.is_err() {
+                return;
+            }
+            let owaagh_appdata_path = res1.unwrap().clone();
+            if !owaagh_appdata_path.exists() {
+                match std::fs::create_dir(owaagh_appdata_path.as_path()) {
+                    Ok(_) => {}
+                    Err(e) => {
+                        println!("couldn't create owaaagh app data folder {}", e);
+                        return;
+                    }
+                }
+            }
+
+            match army_builds.get_mut(&ca_game) {
+                Some(army_set) => {
+                    for mut d_a in default_armies.into_iter() {
+                        let mut new_file_path = owaagh_appdata_path.clone();
+                        new_file_path.push(d_a.file_stem.as_str());
+                        new_file_path.push(game_extension.as_str());
+
+                        match std::fs::copy(d_a.file.clone(), new_file_path.clone()) {
+                            Ok(_) => d_a.file = new_file_path,
+                            Err(e) => {
+                                println!("{} for file_stem {}", e, d_a.file_stem);
+                                return;
+                            }
+                        }
+                        army_set.insert(d_a);
+                    }
+                }
+                None => {
+                    army_builds.insert(ca_game, default_armies);
+                }
+            }
+        }
+    }
+
+    pub fn get_selected_game(&self) -> String {
+        get_ca_game_title(&self.selected_game)
+    }
+
+    pub fn set_selected_game(&mut self, ca_game: CaGame) {
+        self.selected_game = ca_game;
     }
 
     fn get_game_army_builds(&mut self, ca_game: CaGame) -> HashSet<ArmyBuild> {
@@ -167,17 +257,23 @@ impl ArmySetupsManager {
         );
 
         //If loading from CA game folder, have that be dominant file naming system, will always match what you have there.
-        if self.load_folder.is_appdata_folder() {
+        if self.load_folder.is_ca_game_folder() {
+            //copy over everything
             for a in armies.iter_mut() {
                 let mut new_file_path: PathBuf = owaagh_appdata_path.clone();
-                new_file_path.push(a.file_stem.as_str());
-                new_file_path.push(game_extension.as_str());
+
+                new_file_path.push(format!("{}{}", a.file_stem, game_extension).as_str());
 
                 match std::fs::copy(a.file.clone(), new_file_path.clone()) {
                     Ok(_) => a.file = new_file_path,
                     Err(e) => {
-                        let err = format!("Couldn't copy {} err {}", a.file_stem, e);
-                        return Err(err);
+                        let err = format!(
+                            "load_folder_to_owaagh_appdata Couldn't copy from {} to {} err {}",
+                            a.file.to_string_lossy().to_string(),
+                            new_file_path.to_string_lossy().to_string(),
+                            e
+                        );
+                        println!("{}", err);
                     }
                 }
             }
@@ -190,12 +286,12 @@ impl ArmySetupsManager {
                     self.army_builds
                         .insert(self.selected_game.clone(), army_set);
                 }
-                Some(h) => {
-                    let n_before = h.len();
+                Some(army_set) => {
+                    let n_before = army_set.len();
                     for a in armies {
-                        h.insert(a);
+                        army_set.insert(a); //hashset insert doesn't replace if exists
                     }
-                    n_added = h.len() - n_before;
+                    n_added = army_set.len() - n_before;
                 }
             }
             added_or_merged_notification = format!("{} Builds Added", n_added);
@@ -235,25 +331,31 @@ impl ArmySetupsManager {
             }
 
             let n_added = game_army_builds.len() - n_before;
-            added_or_merged_notification = format!("{} Builds Added", n_added,);
-
+            added_or_merged_notification = format!("{} Builds Added", n_added);
+            self.army_builds
+                .insert(self.selected_game.clone(), game_army_builds);
             //self.army_builds = armies;
             return Ok(added_or_merged_notification);
         }
     }
 
-    fn update_display_builds(&mut self) {
+    pub fn update_display_builds(&mut self) {
         let game_builds = self.get_game_army_builds(self.selected_game.clone());
         //check factions first
-        let mut display_builds: Vec<ArmyBuild> = game_builds
-            .iter()
-            .filter(|ab| {
-                (self.search_faction == Wh2Factions::ALL || ab.faction == self.search_faction)
-                    && (self.search_vs_faction == Wh2Factions::ALL
-                        || ab.vs_faction == self.search_vs_faction)
-            })
-            .cloned()
-            .collect();
+        let mut display_builds: Vec<ArmyBuild> = if (self.selected_game == CaGame::Warhammer2) {
+            //only implimented faction & vs faction enums for wh2
+            game_builds
+                .iter()
+                .filter(|ab| {
+                    (self.search_faction == Wh2Factions::ALL || ab.faction == self.search_faction)
+                        && (self.search_vs_faction == Wh2Factions::ALL
+                            || ab.vs_faction == self.search_vs_faction)
+                })
+                .cloned()
+                .collect()
+        } else {
+            game_builds.into_iter().collect()
+        };
 
         //now do string manipulation, slower so on fewer
         let lower_case_search = self.search_string.to_ascii_lowercase();
@@ -270,6 +372,43 @@ impl ArmySetupsManager {
         self.display_builds = display_builds;
     }
 
+    pub fn update_load_folder(&mut self) {
+        let f_string: String;
+        match get_ca_game_army_setups_folder(self.selected_game.clone()) {
+            Ok(p) => {
+                f_string = p.to_string_lossy().to_string();
+            }
+            Err(_) => {
+                return;
+            }
+        }
+        self.load_folder = ArmySetupsFolder::new(f_string.as_str());
+    }
+    pub fn update_insert_folder(&mut self) {
+        let f_string: String;
+        match get_ca_game_army_setups_folder(self.selected_game.clone()) {
+            Ok(p) => {
+                f_string = p.to_string_lossy().to_string();
+            }
+            Err(_) => {
+                return;
+            }
+        }
+        self.insert_folder = ArmySetupsFolder::new(f_string.as_str());
+    }
+
+    pub fn selected_game_update(&mut self) {
+        self.update_load_folder();
+        match self.load_folder_to_owaagh_appdata() {
+            Ok(_) => {}
+            Err(e) => {
+                self.load_folder.set_load_folder_error();
+            }
+        }
+        self.update_display_builds();
+        self.update_insert_folder();
+    }
+
     pub(crate) fn army_selector_scrolling_ui(&mut self, ui: &mut Ui, ctx: &egui::CtxRef) {
         if self.army_builds.is_empty() {
             ui.label("You got to load some armies first");
@@ -278,11 +417,8 @@ impl ArmySetupsManager {
 
         ui.horizontal(|ui| {
             if ui.button("Search").clicked() {
+                println!("searching {}", get_ca_game_title(&self.selected_game));
                 self.update_display_builds();
-                println!(
-                    "search {} todo search & update display function",
-                    self.display_builds.len()
-                );
             }
             if ui
                 .text_edit_singleline(&mut self.search_string)
@@ -333,12 +469,14 @@ impl ArmySetupsManager {
                 for item in 0..self.display_builds.len() {
                     if item == self.track_item {
                         ui.colored_label(
-                            Color32::YELLOW,
+                            Color32::GREEN,
                             self.display_builds[item].file_stem.as_str(),
                         );
                     } else {
-                        let response = ui.label(self.display_builds[item].file_stem.as_str());
-                        if response.clicked() {
+                        if ui
+                            .selectable_label(false, self.display_builds[item].file_stem.as_str())
+                            .clicked()
+                        {
                             self.selected_army_build = self.display_builds[item].clone();
                             self.track_item = item;
                         }
@@ -361,7 +499,7 @@ impl ArmySetupsManager {
 
     pub fn insert_army(&self) -> Result<(), String> {
         //Check If Inputs Valid
-        if !self.insert_folder.is_insert_folder() {
+        if !self.insert_folder.is_ca_game_folder() {
             return Err("You're folder's no good".to_string());
         }
         let insert_name = match self.valid_insert_name() {
@@ -425,7 +563,7 @@ impl ArmySetupsManager {
         });
     }
 
-    pub fn selector_central_panel_ui(&mut self, ui: &mut Ui, ctx: &egui::CtxRef) {
+    pub fn central_panel_ui(&mut self, ui: &mut Ui, ctx: &egui::CtxRef) {
         egui::CollapsingHeader::new("Load Army Setups")
             .default_open(self.load_folder.is_load_folder())
             .show(ui, |ui| {
@@ -494,7 +632,7 @@ impl ArmySetupsManager {
             });
 
         egui::CollapsingHeader::new("Insert Army Setup")
-            .default_open(self.insert_folder.is_insert_folder())
+            .default_open(self.insert_folder.is_ca_game_folder())
             .show(ui, |ui| {
                 //
                 ui.horizontal(|ui| {
@@ -543,7 +681,7 @@ impl ArmySetupsManager {
                         });
                 }
 
-                if self.insert_folder.is_insert_folder() {
+                if self.insert_folder.is_ca_game_folder() {
                     self.insert_army_ui(ui, ctx);
                 }
             });

@@ -1,11 +1,14 @@
 use crate::army_build::ArmyBuild;
-use crate::ca_game::{get_ca_game, get_ca_game_folder, CaGame};
+use crate::ca_game::{
+    get_ca_game_army_setups_folder, get_ca_game_from_folder_name, get_ca_game_subfolder, CaGame,
+};
 use crate::factions::{parse_faction, parse_vs_faction};
 use dirs;
 use std::ffi::OsStr;
 use std::fmt::Debug;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::io::Error;
+use std::path::PathBuf;
 
 #[cfg_attr(
     feature = "persistence",
@@ -25,7 +28,7 @@ impl ArmySetupsFolder {
             Ok(_) => String::new(),
             Err(e) => e,
         };
-        let ca_game = get_ca_game(folder_string.as_str());
+        let ca_game = get_ca_game_from_folder_name(folder_string.as_str());
         Self {
             folder_string,
             folder_error,
@@ -38,7 +41,7 @@ impl ArmySetupsFolder {
         return path.exists() && path.is_dir();
     }
 
-    pub fn is_appdata_folder(&self) -> bool {
+    pub fn is_owaagh_appdata(&self) -> bool {
         validate_insert_folder(
             self.folder_string.as_str(),
             &["AppData\\Roaming\\OWAAGH", "army_setups"],
@@ -50,8 +53,8 @@ impl ArmySetupsFolder {
         validate_load_folder(self.folder_string.as_str()).is_ok()
     }
 
-    pub fn is_insert_folder(&self) -> bool {
-        let res_sub_dir = get_ca_game_folder(self.ca_game.clone());
+    pub fn is_ca_game_folder(&self) -> bool {
+        let res_sub_dir = get_ca_game_army_setups_folder(self.ca_game.clone());
         if res_sub_dir.is_err() {
             return false;
         }
@@ -81,6 +84,14 @@ impl ArmySetupsFolder {
             Ok(_) => String::new(),
             Err(e) => e,
         };
+    }
+
+    pub fn get_tmp_defaults_folder() -> PathBuf {
+        PathBuf::from("tmp_defaults")
+    }
+
+    pub fn get_defaults_folder() -> PathBuf {
+        PathBuf::from("owaagh_defaults")
     }
 }
 
@@ -152,7 +163,11 @@ pub fn load_army_builds(folder_path: &str) -> Vec<ArmyBuild> {
                             faction: parse_faction(&file_stem),
                             vs_faction: parse_vs_faction(&file_stem),
                             original_file: entry.path(),
-                            ca_game: get_ca_game(file_string.as_str()),
+                            ca_game: get_ca_game_from_folder_name(file_string.as_str()),
+                            created_by: String::new(),
+                            game_mod: String::new(),
+                            faction_str: String::new(),
+                            vs_faction_str: String::new(),
                         });
                         //println!("{:?} {:?} {:?}", builds.last().unwrap().file_name, builds.last().unwrap().faction, builds.last().unwrap().vs_faction);
                     }
@@ -225,19 +240,11 @@ pub fn validate_insert_folder(
 //this code block is failing
 //returns path to folder if exists
 pub fn get_owaagh_army_setups_dir(game: &CaGame) -> Result<PathBuf, String> {
-    let mut game_subdir = Path::new("");
-    match get_ca_game_folder(game.clone()) {
-        Ok(p) => {
-            game_subdir = Path::new(""); //p.as_path().clone();
-        }
-        Err(e) => {
-            return Err(e);
-        }
-    }
+    let mut game_subdir = get_ca_game_subfolder(game);
 
     if let Some(mut p) = dirs::home_dir() {
         p = p.join("AppData\\Roaming\\OWAAGH");
-        p = p.join(game_subdir);
+        p = p.join(game_subdir.as_str());
         p = p.join("army_setups");
         if !p.exists() {
             match std::fs::create_dir(p.clone()) {
@@ -247,10 +254,44 @@ pub fn get_owaagh_army_setups_dir(game: &CaGame) -> Result<PathBuf, String> {
                 }
             }
         }
+        if !p.exists() {
+            match std::fs::create_dir(p.clone()) {
+                Ok(_) => {
+                    return Ok(p);
+                }
+                Err(e) => return Err(format!("{}", e)),
+            }
+        }
         return Ok(p);
     }
     let err = format!("dirs::home_dir() None",);
     println!("get_owaagh_army_setups_dir err2 {}", err);
 
     Err(err)
+}
+
+//this code block is failing
+//returns path to folder if exists
+pub fn get_tmp_default_army_setups_dir(game: &CaGame) -> Result<PathBuf, String> {
+    let mut game_subdir;
+    match get_ca_game_army_setups_folder(game.clone()) {
+        Ok(p) => {
+            game_subdir = p.to_string_lossy().to_string(); //p.as_path().clone();
+        }
+        Err(e) => {
+            return Err(e);
+        }
+    }
+
+    let mut p = PathBuf::from(game_subdir.as_str());
+    p = p.join("army_setups");
+    if !p.exists() {
+        match std::fs::create_dir(p.clone()) {
+            Ok(_) => {}
+            Err(e) => {
+                return Err(format!("{}", e));
+            }
+        }
+    }
+    return Ok(p);
 }

@@ -11,10 +11,17 @@ use std::path::PathBuf;
 pub struct ArmyBuild {
     pub file: PathBuf,
     pub file_stem: String,
+    pub original_file: PathBuf,
+
     pub faction: Wh2Factions,
     pub vs_faction: Wh2Factions,
-    pub original_file: PathBuf,
+
     pub ca_game: CaGame,
+    pub game_mod: String,
+    pub created_by: String,
+
+    pub faction_str: String,    // for display, nonwarhammer2 games, & mods
+    pub vs_faction_str: String, // for display, nonwarhammer2 games, & mods
 }
 
 impl PartialEq for ArmyBuild {
@@ -40,6 +47,10 @@ impl Default for ArmyBuild {
             vs_faction: Wh2Factions::UNKNOWN,
             original_file: PathBuf::new(),
             ca_game: CaGame::Warhammer2,
+            game_mod: String::new(),
+            created_by: String::new(),
+            faction_str: String::new(),
+            vs_faction_str: String::new(),
         }
     }
 }

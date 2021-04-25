@@ -1,3 +1,5 @@
+use eframe::egui;
+use eframe::egui::{Color32, Ui};
 use enum_iterator::IntoEnumIterator;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -51,7 +53,7 @@ fn get_subdir_str_ca_game_map() -> HashMap<String, CaGame> {
     m
 }
 
-pub fn get_ca_game(folder_str: &str) -> CaGame {
+pub fn get_ca_game_from_folder_name(folder_str: &str) -> CaGame {
     let subdir_str_ca_game_map = get_subdir_str_ca_game_map();
     let p = PathBuf::from(folder_str);
     let ca_game = CaGame::Warhammer2;
@@ -66,30 +68,6 @@ pub fn get_ca_game(folder_str: &str) -> CaGame {
     }
 
     CaGame::Warhammer2
-}
-
-//this code block is failing
-//returns path to folder if exists
-fn get_game_default_army_setups_dir(
-    game: &str,
-    army_setups_subdir: &str,
-) -> Result<PathBuf, String> {
-    if let Some(mut p) = dirs::home_dir() {
-        p = p.join("AppData\\Roaming\\The Creative Assembly");
-        p = p.join(game);
-        p = p.join(army_setups_subdir);
-        if p.exists() {
-            return Ok(p);
-        } else {
-            let err = format!(
-                "get_user_default_army_setups_folder_dirs dne {}",
-                p.to_string_lossy()
-            );
-            return Err(err);
-        }
-    }
-    let err = format!("dirs::home_dir() None",);
-    Err(err)
 }
 
 pub fn get_ca_game_subfolder(ca_game: &CaGame) -> String {
@@ -110,7 +88,26 @@ pub fn get_ca_game_subfolder(ca_game: &CaGame) -> String {
     String::from(game_subdir)
 }
 
-pub fn get_ca_game_folder(ca_game: CaGame) -> Result<PathBuf, String> {
+pub fn get_ca_game_title(ca_game: &CaGame) -> String {
+    let game_subdir = match ca_game {
+        CaGame::Attila => "Attila",
+        CaGame::Empire => "Empire",
+        CaGame::Medieval2 => "Medieval 2",
+        CaGame::Napoleon => "Napolean",
+        CaGame::Rome => "Rome",
+        CaGame::Rome2 => "Rome 2",
+        CaGame::RomeRemastered => "Rome Remastered",
+        CaGame::Shogun2 => "Shogun 2",
+        CaGame::ThreeKingdoms => "Three Kingdoms",
+        CaGame::ThronesOfBritannia => "Thrones of Britannia",
+        CaGame::Warhammer => "Warhammer",
+        CaGame::Warhammer2 => "Warhammer 2",
+    };
+    String::from(game_subdir)
+}
+
+//
+pub fn get_ca_game_army_setups_folder(ca_game: CaGame) -> Result<PathBuf, String> {
     let army_setups_subdir = match ca_game.clone() {
         CaGame::Empire => "battle_preferences",
         _ => "army_setups",
@@ -118,12 +115,53 @@ pub fn get_ca_game_folder(ca_game: CaGame) -> Result<PathBuf, String> {
 
     let game_subdir = get_ca_game_subfolder(&ca_game);
 
-    get_game_default_army_setups_dir(game_subdir.as_str(), army_setups_subdir)
+    if let Some(mut p) = dirs::home_dir() {
+        p = p.join("AppData\\Roaming\\The Creative Assembly");
+        p = p.join(game_subdir);
+        p = p.join(army_setups_subdir);
+        return Ok(p);
+    }
+    let err = format!("dirs::home_dir() None",);
+    Err(err)
 }
 
 pub fn get_ca_game_army_setup_ext(ca_game: CaGame) -> String {
     match ca_game {
         CaGame::Empire => String::from("battle_preferences"),
         _ => String::from("army_setup"),
+    }
+}
+
+#[cfg_attr(
+    feature = "persistence",
+    derive(serde::Deserialize, serde::Serialize, Clone)
+)]
+#[derive(Debug)]
+pub struct GameSelector {
+    pub ca_game: CaGame,
+}
+
+impl Default for GameSelector {
+    fn default() -> Self {
+        GameSelector {
+            ca_game: CaGame::Warhammer2,
+        }
+    }
+}
+
+impl GameSelector {
+    pub fn central_panel_ui(&mut self, ui: &mut Ui, ctx: &egui::CtxRef) {
+        for ca_game in CaGame::into_enum_iter() {
+            if ca_game == self.ca_game {
+                ui.colored_label(Color32::GREEN, get_ca_game_title(&ca_game));
+            } else {
+                if ui
+                    .selectable_label(false, get_ca_game_title(&ca_game))
+                    .clicked()
+                {
+                    self.ca_game = ca_game;
+                }
+            }
+        }
     }
 }
