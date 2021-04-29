@@ -1,8 +1,12 @@
 use crate::army_build::ArmyBuild;
+use crate::ca_game::CaGame::Warhammer2;
 use crate::ca_game::{
     get_ca_game_army_setups_folder, get_ca_game_from_folder_name, get_ca_game_subfolder, CaGame,
 };
+use crate::factions::{get_faction_names, Wh2Factions};
 use crate::factions::{parse_faction, parse_vs_faction};
+use crate::ymd_hms_dash_format::YMD_HMS_FORMAT;
+use chrono::{DateTime, Utc};
 use dirs;
 use std::ffi::OsStr;
 use std::fmt::Debug;
@@ -129,7 +133,7 @@ pub fn validate_load_folder(folder_path: &str) -> Result<(), String> {
     Err("The folder got no \'.army_setup\' files".to_string())
 }
 
-pub fn load_army_builds(folder_path: &str) -> Vec<ArmyBuild> {
+pub fn load_army_builds(folder_path: &str, ca_game: &CaGame) -> Vec<ArmyBuild> {
     let mut builds = vec![];
     match validate_load_folder(folder_path) {
         Ok(_) => {}
@@ -157,17 +161,46 @@ pub fn load_army_builds(folder_path: &str) -> Vec<ArmyBuild> {
                             .expect("load_army_builds to_str fail")
                             .to_string();
 
+                        let mut created_on: DateTime<Utc>;
+                        match std::fs::metadata(entry.path()) {
+                            Ok(m) => {
+                                let t = m.created().unwrap_or(std::time::SystemTime::now());
+                                created_on = t.into();
+                            }
+                            Err(e) => {
+                                println!("Getting metadata err {}", e);
+                                continue;
+                            }
+                        }
+
+                        let mut faction = Wh2Factions::ALL;
+                        let mut vs_faction = Wh2Factions::ALL;
+                        let mut faction_str = String::new();
+                        let mut vs_faction_str = String::new();
+                        if *ca_game == CaGame::Warhammer2 {
+                            faction = parse_faction(&file_stem);
+                            vs_faction = parse_vs_faction(&file_stem);
+                            faction_str = get_faction_names(&faction).to_string();
+                            vs_faction_str = get_faction_names(&vs_faction).to_string();
+                        }
+
                         builds.push(ArmyBuild {
                             file: entry.path(),
                             file_stem: file_stem.clone(),
                             faction: parse_faction(&file_stem),
+                            funds: 12400,
                             vs_faction: parse_vs_faction(&file_stem),
+                            created_on,
                             original_file: entry.path(),
                             ca_game: get_ca_game_from_folder_name(file_string.as_str()),
                             created_by: String::new(),
                             game_mod: String::new(),
-                            faction_str: String::new(),
-                            vs_faction_str: String::new(),
+                            faction_str,
+                            vs_faction_str,
+                            win_count: 0,
+                            loss_count: 0,
+                            image_files: vec![],
+                            notes: String::new(),
                         });
                         //println!("{:?} {:?} {:?}", builds.last().unwrap().file_name, builds.last().unwrap().faction, builds.last().unwrap().vs_faction);
                     }
@@ -238,7 +271,7 @@ pub fn validate_insert_folder(
 }
 
 //this code block is failing
-//returns path to folder if exists
+//folder guarenteed to exist if return ok
 pub fn get_owaagh_army_setups_dir(game: &CaGame) -> Result<PathBuf, String> {
     let mut game_subdir = get_ca_game_subfolder(game);
 
@@ -252,14 +285,6 @@ pub fn get_owaagh_army_setups_dir(game: &CaGame) -> Result<PathBuf, String> {
                 Err(e) => {
                     return Err(format!("{}", e));
                 }
-            }
-        }
-        if !p.exists() {
-            match std::fs::create_dir(p.clone()) {
-                Ok(_) => {
-                    return Ok(p);
-                }
-                Err(e) => return Err(format!("{}", e)),
             }
         }
         return Ok(p);

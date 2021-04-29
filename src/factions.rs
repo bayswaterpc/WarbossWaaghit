@@ -47,7 +47,7 @@ pub fn get_faction_abbreviations(faction: Wh2Factions) -> &'static str {
     }
 }
 
-pub fn _get_faction_names(faction: Wh2Factions) -> &'static str {
+pub fn get_faction_names(faction: &Wh2Factions) -> &'static str {
     match faction {
         Wh2Factions::BM => "Beastmen",
         Wh2Factions::BRT => "Bretonnia",
@@ -151,8 +151,9 @@ pub fn faction_dropdown_button(
     label: &str,
     is_vs: bool,
 ) -> Response {
-    let faction_btn_response =
-        egui::combo_box_with_label(ui, label, format!("{:?}", faction), |ui| {
+    let faction_btn_response = egui::ComboBox::from_label(label)
+        .selected_text(format!("{:?}", faction))
+        .show_ui(ui, |ui| {
             ui.selectable_value(
                 faction,
                 Wh2Factions::ALL,

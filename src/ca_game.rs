@@ -1,3 +1,5 @@
+use crate::army_setups_manager::ArmySetupsManager;
+use crate::central_panel_state::AppState;
 use eframe::egui;
 use eframe::egui::{Color32, Ui};
 use enum_iterator::IntoEnumIterator;
@@ -150,17 +152,24 @@ impl Default for GameSelector {
 }
 
 impl GameSelector {
-    pub fn central_panel_ui(&mut self, ui: &mut Ui, ctx: &egui::CtxRef) {
+    pub fn central_panel_ui(
+        &mut self,
+        ui: &mut Ui,
+        army_setups_manager: &mut ArmySetupsManager,
+        app_state: &mut AppState,
+    ) {
         for ca_game in CaGame::into_enum_iter() {
-            if ca_game == self.ca_game {
-                ui.colored_label(Color32::GREEN, get_ca_game_title(&ca_game));
-            } else {
-                if ui
-                    .selectable_label(false, get_ca_game_title(&ca_game))
-                    .clicked()
-                {
-                    self.ca_game = ca_game;
-                }
+            if ui
+                .selectable_label(ca_game == self.ca_game, get_ca_game_title(&ca_game))
+                .clicked()
+            {
+                self.ca_game = ca_game;
+
+                //TODO plugin bevy and use ecs
+                army_setups_manager.set_selected_game(self.ca_game.clone());
+                army_setups_manager.selected_game_update();
+
+                app_state.ca_game = self.ca_game.clone();
             }
         }
     }

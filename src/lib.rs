@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 #![warn(clippy::all, rust_2018_idioms)]
 
+mod advanced_search_container;
 mod app;
 pub mod army_build;
 pub mod army_setups_folder;
@@ -8,6 +9,8 @@ pub mod army_setups_manager;
 mod ca_game;
 mod central_panel_state;
 pub mod factions;
+mod misc_folders;
+pub mod ymd_hms_dash_format;
 
 pub use app::OwaaghApp;
 

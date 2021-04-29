@@ -59,20 +59,16 @@ impl AppState {
 
     pub fn side_bar_ui(&mut self, ui: &mut Ui, ctx: &egui::CtxRef) {
         for central_panel_state in CentralPanelState::into_enum_iter() {
-            if central_panel_state == self.central_panel_state {
-                ui.colored_label(
-                    Color32::GREEN,
+            //let response = ui.label(self.get_side_bar_title(&central_panel_state));
+            //if response.clicked() {
+            if ui
+                .selectable_label(
+                    central_panel_state == self.central_panel_state,
                     self.get_side_bar_title(&central_panel_state),
-                );
-            } else {
-                //let response = ui.label(self.get_side_bar_title(&central_panel_state));
-                //if response.clicked() {
-                if ui
-                    .selectable_label(false, self.get_side_bar_title(&central_panel_state))
-                    .clicked()
-                {
-                    self.central_panel_state = central_panel_state;
-                }
+                )
+                .clicked()
+            {
+                self.central_panel_state = central_panel_state;
             }
         }
     }

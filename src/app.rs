@@ -76,16 +76,11 @@ impl epi::App for OwaaghApp {
                 ui.label("To Do");
             }
             CentralPanelState::GameSelection => {
-                game_selector.central_panel_ui(ui, ctx);
-                app_state.ca_game = game_selector.ca_game.clone();
+                game_selector.central_panel_ui(ui, army_setups_manager, app_state);
             }
-            CentralPanelState::BuildManager => {
-                army_setups_manager.set_selected_game(game_selector.ca_game.clone());
-                army_setups_manager.selected_game_update();
-                army_setups_manager.central_panel_ui(ui, ctx)
-            }
+            CentralPanelState::BuildManager => army_setups_manager.central_panel_ui(ui, ctx),
             CentralPanelState::TierList => {
-                ui.label("To Do");
+                ui.label("Greenskins da Best");
             }
             CentralPanelState::Replays => {
                 ui.label("To Do");
