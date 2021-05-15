@@ -29,14 +29,12 @@ jobs:
           restore-keys: |
             windows-${{github.ref}}-${{github.sha}}
       - name: Install Mingw, unzip, zip and wget
-        run: sudo apt-get update; sudo apt install mingw-w64 unzip wget zip -y
+        - run: sudo apt-get install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev # egui_glium dependencies
 
       - name: Build Release Cross Compile
         run: |
-          rustup target add x86_64-pc-windows
-          echo "[target.x86_64-pc-windows-gnu]" > ~/.cargo/config
-          echo "linker = \"x86_64-w64-mingw32-gcc\"" >> ~/.cargo/config
-          echo "ar = \"x86_64-w64-mingw32-gcc-ar\"" >> ~/.cargo/config
+          rustup target add x86_64-pc-windows-msvc
+          echo "[target.x86_64-pc-windows-msvc]" > ~/.cargo/config
           strip target/x86_64-pc-windows/release/WarbossWaaghit.exe
         env:
           CARGO_INCREMENTAL: 0
