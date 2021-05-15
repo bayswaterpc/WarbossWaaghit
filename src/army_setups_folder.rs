@@ -48,7 +48,7 @@ impl ArmySetupsFolder {
     pub fn is_owaagh_appdata(&self) -> bool {
         validate_insert_folder(
             self.folder_string.as_str(),
-            &["AppData\\Roaming\\OWAAGH", "army_setups"],
+            &["AppData\\Roaming\\WarbossWaaghit", "army_setups"],
         )
         .is_ok()
     }
@@ -276,7 +276,7 @@ pub fn get_owaagh_army_setups_dir(game: &CaGame) -> Result<PathBuf, String> {
     let mut game_subdir = get_ca_game_subfolder(game);
 
     if let Some(mut p) = dirs::home_dir() {
-        p = p.join("AppData\\Roaming\\OWAAGH");
+        p = p.join("AppData\\Roaming\\WarbossWaaghit");
         p = p.join(game_subdir.as_str());
         p = p.join("army_setups");
         if !p.exists() {

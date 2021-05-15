@@ -8,14 +8,13 @@ use eframe::egui::Ui;
 use enum_iterator::IntoEnumIterator;
 use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
-
+use std::cmp::Ordering;
 const MAXFUNDS: u32 = 100000;
 
 #[cfg_attr(
     feature = "persistence",
     derive(serde::Deserialize, serde::Serialize, Clone)
 )]
-#[derive()]
 pub struct ArmyBuild {
     pub file: PathBuf,
     pub file_stem: String, //also acts as display name
@@ -41,6 +40,33 @@ pub struct ArmyBuild {
 
     pub image_files: Vec<PathBuf>,
     pub notes: String,
+}
+
+impl Ord for ArmyBuild {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.file_stem.cmp(&other.file_stem)
+    }
+}
+
+
+impl PartialOrd for ArmyBuild {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl PartialEq for ArmyBuild {
+    fn eq(&self, other: &Self) -> bool {
+        self.file_stem == other.file_stem
+    }
+}
+
+impl Eq for ArmyBuild {}
+
+impl Hash for ArmyBuild {
+    fn hash<H: Hasher>(&self, hasher: &mut H){
+        self.file_stem.hash(hasher)
+    }
 }
 
 #[cfg_attr(
@@ -85,20 +111,6 @@ pub fn get_army_build_display_column_title(display_col: &ArmyBuildDisplayColumns
 pub fn show_army_build_header_row(ui: &mut Ui) {
     for display_col in ArmyBuildDisplayColumns::into_enum_iter() {
         ui.label(get_army_build_display_column_title(&display_col));
-    }
-}
-
-impl PartialEq for ArmyBuild {
-    fn eq(&self, other: &Self) -> bool {
-        self.file_stem == other.file_stem
-    }
-}
-
-impl Eq for ArmyBuild {}
-
-impl Hash for ArmyBuild {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.file_stem.hash(state);
     }
 }
 

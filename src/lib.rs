@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 #![warn(clippy::all, rust_2018_idioms)]
 
+mod resources_panel;
 mod advanced_search_container;
 mod app;
 pub mod army_build;

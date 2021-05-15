@@ -9,11 +9,11 @@ license = "MIT"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
-name = "owaagh_lib"
+name = "warboss_waaghit_lib"
 path = "src/lib.rs"
 
 [[bin]]
-name = "owaagh"
+name = "WarbossWaaghit"
 path = "src/main.rs"
 
 [dependencies]

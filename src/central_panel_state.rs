@@ -44,23 +44,24 @@ impl Default for AppState {
     }
 }
 
+
 impl AppState {
     pub fn get_side_bar_title(&self, central_panel_state: &CentralPanelState) -> String {
         match central_panel_state {
-            CentralPanelState::OwaaghSettings => "Settings".to_string(),
             CentralPanelState::GameSelection => get_ca_game_title(&self.ca_game),
             CentralPanelState::BuildManager => "Build Boss".to_string(),
             CentralPanelState::TierList => "Tier Lists".to_string(),
-            CentralPanelState::Replays => "Replays".to_string(),
             CentralPanelState::Resources => "Resources".to_string(),
+            CentralPanelState::Replays => "Replays".to_string(),
+            CentralPanelState::OwaaghSettings => "Settings".to_string(),
             CentralPanelState::Acknowledgements => "Acknowledgments".to_string(),
         }
     }
 
     pub fn side_bar_ui(&mut self, ui: &mut Ui, ctx: &egui::CtxRef) {
-        for central_panel_state in CentralPanelState::into_enum_iter() {
-            //let response = ui.label(self.get_side_bar_title(&central_panel_state));
-            //if response.clicked() {
+        let supported_states = vec![CentralPanelState::GameSelection, CentralPanelState::BuildManager, CentralPanelState::TierList, CentralPanelState::Resources];
+        //for central_panel_state in CentralPanelState::into_enum_iter() {
+        for central_panel_state in supported_states {
             if ui
                 .selectable_label(
                     central_panel_state == self.central_panel_state,

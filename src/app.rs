@@ -1,6 +1,7 @@
 use crate::army_setups_manager::ArmySetupsManager;
 use crate::ca_game::{get_ca_game_title, GameSelector};
 use crate::central_panel_state::{AppState, CentralPanelState};
+use crate::resources_panel;
 use eframe::{egui, epi};
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
@@ -24,7 +25,7 @@ impl Default for OwaaghApp {
 //Git note on debugging
 impl epi::App for OwaaghApp {
     fn name(&self) -> &str {
-        "OWAAGH"
+        "WarbossWaaghit"
     }
 
     /// Called by the framework to load old app state (if any).
@@ -37,7 +38,6 @@ impl epi::App for OwaaghApp {
     /// Called by the frame work to save state before shutdown.
     #[cfg(feature = "persistence")]
     fn save(&mut self, storage: &mut dyn epi::Storage) {
-        println!("persistence save happens??");
         epi::set_value(storage, epi::APP_KEY, self);
     }
 
@@ -60,21 +60,10 @@ impl epi::App for OwaaghApp {
             });
         });
 
-        egui::TopPanel::top("top_panel").show(ctx, |ui| {
-            // The top panel is often a good place for a menu bar:
-            egui::menu::bar(ui, |ui| {
-                egui::menu::menu(ui, "File", |ui| {
-                    if ui.button("Quit").clicked() {
-                        frame.quit();
-                    }
-                });
-            });
-        });
-
         egui::CentralPanel::default().show(ctx, |ui| match app_state.central_panel_state.clone() {
-            CentralPanelState::OwaaghSettings => {
-                ui.label("To Do");
-            }
+            // CentralPanelState::OwaaghSettings => {
+            //     ui.label("To Do");
+            // }
             CentralPanelState::GameSelection => {
                 game_selector.central_panel_ui(ui, army_setups_manager, app_state);
             }
@@ -82,15 +71,19 @@ impl epi::App for OwaaghApp {
             CentralPanelState::TierList => {
                 ui.label("Greenskins da Best");
             }
-            CentralPanelState::Replays => {
-                ui.label("To Do");
-            }
+            // CentralPanelState::Replays => {
+            //     ui.horizontal(|ui| {
+            //         ui.label("To Do In OWAAGH");
+            //         ui.hyperlink("https://www.twitch.tv/gudgitz");
+            //     });
+            // }
             CentralPanelState::Resources => {
-                ui.label("To Do");
+                resources_panel::central_panel_ui(ui, ctx);
             }
-            CentralPanelState::Acknowledgements => {
-                ui.label("To Do");
-            }
+            // CentralPanelState::Acknowledgements => {
+            //     ui.label("To Do");
+            // }
+            _ => {}
         });
     }
 }

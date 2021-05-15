@@ -51,14 +51,13 @@ pub struct ArmySetupsManager {
 
 impl Default for ArmySetupsManager {
     fn default() -> Self {
-        println!("default manager");
+
         let default_load_path = get_ca_game_army_setups_folder(CaGame::Warhammer2)
             .unwrap_or(
                 PathBuf::from("C:\\Users\\DaBiggestBoss\\AppData\\Roaming\\The Creative Assembly\\Warhammer2\\army_setups")
             );
         let load_folder =
             ArmySetupsFolder::new(default_load_path.to_string_lossy().to_string().as_str());
-        println!("load asf {:?}", load_folder);
 
         let default_insert_path = get_ca_game_army_setups_folder(CaGame::Warhammer2)
             .unwrap_or(
@@ -66,13 +65,9 @@ impl Default for ArmySetupsManager {
             );
         let insert_folder =
             ArmySetupsFolder::new(default_insert_path.to_string_lossy().to_string().as_str());
-        println!("insert asf {:?}", insert_folder);
+
 
         let mut army_builds = ArmySetupsManager::get_ca_army_builds();
-        println!(
-            "ArmySetupsManager.default army_builds.len() {}",
-            army_builds.len()
-        );
 
         if ArmySetupsFolder::get_tmp_defaults_folder().exists() {
             ArmySetupsManager::append_default_army_builds(&mut army_builds);
@@ -353,7 +348,6 @@ impl ArmySetupsManager {
     }
 
     pub fn update_display_builds(&mut self) {
-        println!("updating display builds");
         let game_builds = self.get_game_army_builds(self.selected_game.clone());
         //check factions first
         let mut display_builds: Vec<ArmyBuild> = if (self.selected_game == CaGame::Warhammer2) {
@@ -383,6 +377,7 @@ impl ArmySetupsManager {
             .cloned()
             .collect();
 
+        display_builds.sort();
         self.display_builds = display_builds;
     }
 
@@ -526,12 +521,12 @@ impl ArmySetupsManager {
         ui.horizontal(|ui| {
             scroll_top |= ui.button("⬆").clicked();
             scroll_bottom |= ui.button("⬇").clicked();
-            if ui.button("🚫").clicked() {
-                println!("To do delete pop");
-            }
-            if ui.button("🗋").clicked() {
-                println!("To do delete pop");
-            }
+            // if ui.button("🚫").clicked() {
+            //     println!("To do delete pop");
+            // }
+            // if ui.button("🗋").clicked() {
+            //     println!("To do delete pop");
+            // }
         });
 
         self.army_selector_scrolling_table(ui, scroll_top, scroll_bottom);
@@ -772,11 +767,11 @@ impl ArmySetupsManager {
 
         if self.selected_army_build.file_stem.len() > 0 {
             //file stem is required so
-            egui::CollapsingHeader::new(format!("Edit {}", self.selected_army_build.file_stem))
-                .default_open(false)
-                .show(ui, |ui| {
-                    self.edit_section_ui(ui, ctx);
-                });
+            // egui::CollapsingHeader::new(format!("Edit {}", self.selected_army_build.file_stem))
+            //     .default_open(false)
+            //     .show(ui, |ui| {
+            //         self.edit_section_ui(ui, ctx);
+            //     });
 
             egui::CollapsingHeader::new(format!("Insert {}", self.selected_army_build.file_stem))
                 .default_open(self.insert_folder.is_ca_game_folder())
