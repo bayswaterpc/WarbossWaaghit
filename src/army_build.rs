@@ -178,7 +178,7 @@ impl ArmyBuild {
             match display_col {
                 ArmyBuildDisplayColumns::Notes => {
                     if ui.button(self.get_display_string(&display_col)).clicked() {
-                        println!("TODO popup of notes");
+                        //println!("TODO popup of notes");
                     }
                 }
 

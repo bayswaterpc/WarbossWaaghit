@@ -31,7 +31,6 @@ impl epi::App for OwaaghApp {
     /// Called by the framework to load old app state (if any).
     #[cfg(feature = "persistence")]
     fn load(&mut self, storage: &dyn epi::Storage) {
-        println!("persistence load happens??");
         *self = epi::get_value(storage, epi::APP_KEY).unwrap_or_default()
     }
 

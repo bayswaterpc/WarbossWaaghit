@@ -476,7 +476,6 @@ impl ArmySetupsManager {
 
         ui.horizontal(|ui| {
             if ui.button("Search").clicked() {
-                println!("searching {}", get_ca_game_title(&self.selected_game));
                 self.update_display_builds();
             }
             if ui
@@ -484,10 +483,6 @@ impl ArmySetupsManager {
                 .lost_focus()
                 && ctx.input().key_pressed(egui::Key::Enter)
             {
-                println!(
-                    "enter search :) {} todo search & update display function",
-                    self.search_string
-                );
                 self.update_display_builds();
             }
 
@@ -497,7 +492,6 @@ impl ArmySetupsManager {
                 let faction_btn_response =
                     faction_dropdown_button(ui, &mut self.search_faction, "Faction", false);
                 if faction_btn_response.clicked() && prior_selected_faction != self.search_faction {
-                    println!("change faction");
                     self.update_display_builds();
                 }
 
@@ -507,7 +501,6 @@ impl ArmySetupsManager {
                 if vs_faction_btn_response.clicked()
                     && prior_selected_faction != self.search_vs_faction
                 {
-                    println!("change vs faction");
                     self.update_display_builds();
                 }
             }
@@ -547,7 +540,6 @@ impl ArmySetupsManager {
 
         let selected_file = self.selected_army_build.file.to_str().unwrap(); //osstring prevalidated so none option should be fine
         if !self.selected_army_build.file.is_file() {
-            println!("{}", selected_file);
             return Err("Da army file went missing!!!!".to_string());
         }
 
@@ -571,9 +563,7 @@ impl ArmySetupsManager {
         ui.horizontal(|ui| {
             if ui.button("Insert Build as ").clicked() {
                 match self.insert_army() {
-                    Ok(()) => {
-                        println!("inserted")
-                    }
+                    Ok(()) => {}
                     Err(e) => {
                         println!("err {}", e)
                     }
@@ -583,9 +573,7 @@ impl ArmySetupsManager {
                 && ctx.input().key_pressed(egui::Key::Enter)
             {
                 match self.insert_army() {
-                    Ok(()) => {
-                        println!("inserted")
-                    }
+                    Ok(()) => { }
                     Err(e) => {
                         println!("err {}", e)
                     }
@@ -604,9 +592,6 @@ impl ArmySetupsManager {
     fn army_card_image_file_select_ui_row(&mut self, ui: &mut Ui, ctx: &egui::CtxRef) {
         ui.horizontal(|ui| {
             if ui.button("Add Army Image File").clicked() {
-                //if  { }
-                println!("aa {}", self.insert_folder.folder_string.as_str());
-
                 let params = DialogParams {
                     default_folder: self.insert_folder.folder_string.as_str(),
                     options: FOS_PICKFOLDERS,
@@ -725,8 +710,6 @@ impl ArmySetupsManager {
                         }
                     }
                     if ui.button("...").clicked() {
-                        println!("aa {}", self.load_folder.folder_string.as_str());
-
                         let params = DialogParams {
                             default_folder: self.load_folder.folder_string.as_str(),
                             options: FOS_PICKFOLDERS,
@@ -735,7 +718,6 @@ impl ArmySetupsManager {
 
                         match wfd::open_dialog(params) {
                             Ok(res) => {
-                                println!("{:?}", res.selected_file_path);
                                 self.load_folder.folder_string =
                                     res.selected_file_path.to_string_lossy().to_string();
                                 self.load_folder.set_load_folder_error();
@@ -790,8 +772,6 @@ impl ArmySetupsManager {
                         }
 
                         if ui.button("...").clicked() {
-                            println!("aa {}", self.insert_folder.folder_string.as_str());
-
                             let params = DialogParams {
                                 default_folder: self.insert_folder.folder_string.as_str(),
                                 options: FOS_PICKFOLDERS,
@@ -800,7 +780,6 @@ impl ArmySetupsManager {
 
                             match wfd::open_dialog(params) {
                                 Ok(res) => {
-                                    println!("{:?}", res.selected_file_path);
                                     self.insert_folder.folder_string =
                                         res.selected_file_path.to_string_lossy().to_string();
                                     self.insert_folder.set_insert_folder_error();
