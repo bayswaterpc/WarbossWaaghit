@@ -4,10 +4,6 @@ A little app built from the egui template project [egui](https://github.com/emil
 
 A simple rust GUI app in Rust for managing army builds and skipping slow in game scroll.
 
-Very early stage
-
-
-
 ### Running Release
 
 Download zip & unpack
@@ -17,7 +13,9 @@ place .exe & army list folder where you'd like to keep them.
 
 ### Building From Source Locally
 
-Download rust
+Download [rustup](https://rustup.rs/) 
+
+Clone or Fork Repo, navigate to project folder in terminal and run
 
 `cargo build --release`
 
