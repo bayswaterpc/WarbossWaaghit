@@ -34,7 +34,7 @@ jobs:
           sudo apt-get install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
           rustup target add x86_64-pc-windows-msvc
           echo "[target.x86_64-pc-windows-msvc]" > ~/.cargo/config
-          strip target/x86_64-pc-windows/release/WarbossWaaghit.exe
+          strip target/x86_64-pc-windows-msvc/release/WarbossWaaghit.exe
         env:
           CARGO_INCREMENTAL: 0
           RUSTFLAGS: "-C debuginfo=0 -D warnings"
