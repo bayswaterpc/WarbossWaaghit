@@ -33,6 +33,7 @@ jobs:
         run: | # egui_glium dependencies
           sudo apt-get install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
           rustup target add x86_64-pc-windows-msvc
+          cargo build --release
           echo "[target.x86_64-pc-windows-msvc]" > ~/.cargo/config
           strip target/x86_64-pc-windows-msvc/release/WarbossWaaghit.exe
         env:
@@ -40,9 +41,9 @@ jobs:
           RUSTFLAGS: "-C debuginfo=0 -D warnings"
         if: ${{ matrix.type == 'release'}}
 
-      - name: Store Windows CrossComplile
-        uses: actions/upload-artifact@v2
-        with:
-          name: WarbossWaaghit-Windows-${{ matrix.toolchain }}
-          path: gtk_app.zip
-        if: ${{ matrix.type == 'release' }}
+      # - name: Store Windows CrossComplile
+      #   uses: actions/upload-artifact@v2
+      #   with:
+      #     name: WarbossWaaghit-Windows-${{ matrix.toolchain }}
+      #     path: gtk_app.zip
+      #   if: ${{ matrix.type == 'release' }}
