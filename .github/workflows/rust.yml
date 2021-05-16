@@ -28,11 +28,10 @@ jobs:
           key: windows-${{github.ref}}-${{github.sha}}
           restore-keys: |
             windows-${{github.ref}}-${{github.sha}}
-      - name: Install Mingw, unzip, zip and wget
-        - run: sudo apt-get install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev # egui_glium dependencies
 
       - name: Build Release Cross Compile
-        run: |
+        run: | # egui_glium dependencies
+          sudo apt-get install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
           rustup target add x86_64-pc-windows-msvc
           echo "[target.x86_64-pc-windows-msvc]" > ~/.cargo/config
           strip target/x86_64-pc-windows/release/WarbossWaaghit.exe
